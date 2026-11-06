@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>画像を連番にリネームして並べ替え、ZIPでまとめて保存 | ブラウザだけで完結 | ramda lab</title>
-<meta name="description" content="複数の画像をドラッグで並べ替え、001、002…の連番ファイル名に一括変更してZIPで保存できます。JPG・PNG・WebPへの変換や縮小も可能。画像はどこにも送信しません(このページのコードは通信しません)。">
+<meta name="description" content="複数の画像をドラッグで並べ替え、001、002…の連番ファイル名に一括変更してZIPで保存できます。JPG・PNG・WebPへの変換や縮小も可能。画像はどこにも送信しません。">
 <link rel="canonical" href="https://lab.ramda.io/image-renamer/">
 <meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="/style.css">
@@ -38,7 +38,7 @@ progress{width:100%;height:1.2rem}
 button:disabled{opacity:.5;cursor:not-allowed}
 .privacy{border:2px solid var(--ok);background:var(--panel);padding:.7rem 1rem;margin:1rem 0}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "画像を連番にリネームして並べ替え、ZIPでまとめて保存", "url": "https://lab.ramda.io/image-renamer/", "description": "複数の画像をドラッグで並べ替え、001、002…の連番ファイル名に一括変更してZIPで保存できます。JPG・PNG・WebPへの変換や縮小も可能。画像はどこにも送信しません(このページのコードは通信しません)。", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (ブラウザ)", "browserRequirements": "JavaScript が必要", "inLanguage": "ja", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "画像を連番にリネームして並べ替え、ZIPでまとめて保存", "url": "https://lab.ramda.io/image-renamer/", "description": "複数の画像をドラッグで並べ替え、001、002…の連番ファイル名に一括変更してZIPで保存できます。JPG・PNG・WebPへの変換や縮小も可能。画像はどこにも送信しません。", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (ブラウザ)", "browserRequirements": "JavaScript が必要", "inLanguage": "ja", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}}</script>
 </head>
 <body>
 <a class="skip" href="#main">本文へ</a>
@@ -47,7 +47,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 <h1>画像を連番にリネームして並べ替え、ZIPで保存</h1>
 <p class="lead">複数の画像を好きな順に並べて、<code>photo_001.jpg</code>、<code>photo_002.jpg</code>…のように一括で名前を付け直し、ZIPにまとめます。</p>
 
-<div class="privacy"><strong>このページのコードは、画像をどこにも送信しません。</strong> このページは、あなたのブラウザの中だけで動きます。画像のアップロード、解析ツール、Cookieはありません。確かめたい場合は、ページを開いたあとに機内モードにするかネットワークを切って、そのまま使ってみてください。</div>
+<div class="privacy"><strong>このページのコードは、画像をどこにも送信しません。</strong> このページは、あなたのブラウザの中だけで動きます。画像のアップロードとCookieはありません。</div>
 
 <div class="drop" id="drop">
   <p><strong>ここに画像をドロップ</strong></p>
@@ -137,7 +137,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 
 <p class="hint">関連ツール: <a href="/image-compress-kb/">画像を指定KB以下に一括圧縮</a> / <a href="/image-convert/">WebP・AVIF・PNGをJPGに一括変換</a> / <a href="/image-resize/">画像サイズ変更と証明写真サイズ</a></p>
 <footer>
-<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告、アクセス解析、Cookieはありません。ZIPの書き出しは自前の実装で、外部ライブラリは使っていません。</p>
+<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告とCookieはありません。アクセス数の集計に、Cookieを使わない Cloudflare Web Analytics が配信側で入っています(ファイルの中身は送りません)。ZIPの書き出しは自前の実装で、外部ライブラリは使っていません。</p>
 <p><a href="/">ramda lab トップへ</a></p>
 </footer>
 </main>

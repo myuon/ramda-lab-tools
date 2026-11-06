@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HEIC, WebP, AVIF to JPG Converter: Batch, No Upload | ramda lab</title>
+<meta name="description" content="Convert HEIC, WebP, AVIF, PNG and other images to JPG, PNG or WebP in your browser. Batch conversion, ZIP download, HEIC orientation applied. This page's code never uploads your files.">
+<link rel="canonical" href="https://lab.ramda.io/image-convert/en/">
+<link rel="alternate" hreflang="ja" href="https://lab.ramda.io/image-convert/">
+<link rel="alternate" hreflang="en" href="https://lab.ramda.io/image-convert/en/">
+<link rel="alternate" hreflang="x-default" href="https://lab.ramda.io/image-convert/">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/style.css">
+<style>
+.drop{border:3px dashed var(--accent);background:var(--panel);padding:1.4rem 1rem;text-align:center;margin:1rem 0}
+.drop.over{background:var(--code)}
+.drop p{margin:.3rem 0}
+.row{display:flex;flex-wrap:wrap;gap:.6rem 1rem}
+.row > div{flex:1 1 9rem;min-width:8rem}
+.row input[type=number]{max-width:none}
+select{font:inherit;padding:.55rem .6rem;border:1px solid var(--muted);background:var(--bg);color:var(--ink);min-height:44px;width:100%}
+input[type=range]{width:100%;min-height:44px}
+input[type=color]{width:4rem;height:44px;padding:2px;border:1px solid var(--muted);background:var(--bg);display:block}
+.list{list-style:none;margin:1rem 0;padding:0}
+.list li{background:var(--panel);border:1px solid var(--line);padding:.4rem .6rem;margin:.3rem 0;display:flex;flex-wrap:wrap;gap:.2rem .8rem;align-items:center}
+.list .fn{flex:1 1 12rem;font-size:.9rem;min-width:0}
+.list .st{font-size:.82rem;color:var(--muted)}
+.list .st.ng{color:var(--ng);font-weight:700}
+.list a.dlk{display:inline-flex;align-items:center;min-height:44px;font-size:.9rem}
+button.sm{min-height:44px;padding:.4rem .8rem}
+.status{min-height:1.5em;margin:.4rem 0}
+.errs{background:var(--warn-bg);border:2px solid var(--warn);padding:.6rem .9rem;margin:.8rem 0;font-size:.92rem}
+.errs ul{margin:.3rem 0;padding-left:1.2rem}
+progress{width:100%;height:1.2rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.privacy{border:2px solid var(--ok);background:var(--panel);padding:.7rem 1rem;margin:1rem 0}
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "HEIC, WebP, AVIF to JPG Converter", "url": "https://lab.ramda.io/image-convert/en/", "description": "Convert HEIC, WebP, AVIF, PNG and other images to JPG, PNG or WebP in your browser. Batch conversion, ZIP download, HEIC orientation applied. This page's code never uploads your files.", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (web browser)", "browserRequirements": "Requires JavaScript", "inLanguage": "en", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="site"><div class="wrap"><a class="brand" href="/">ramda lab</a> <a href="/image-convert/" hreflang="ja" lang="ja" style="margin-left:auto">日本語</a></div></header>
+<main class="wrap" id="main">
+<h1>HEIC, WebP, AVIF to JPG Converter</h1>
+<p class="lead">Convert HEIC, WebP, AVIF, PNG, GIF, BMP and other images to JPG, PNG or WebP in batches. When you save a transparent image as JPG, you can pick the background colour.</p>
+
+<div class="privacy"><strong>This page's code never uploads your files.</strong> Everything runs inside your browser. There are no uploads and no cookies. Page views are counted by cookieless Cloudflare Web Analytics, added by the host; your files are never sent.</div>
+
+<div class="drop" id="drop">
+  <p><strong>Drop images here</strong></p>
+  <p class="hint">or</p>
+  <p><button type="button" id="pick">Choose images</button></p>
+  <p class="hint">HEIC, WebP, AVIF, PNG, JPG, GIF, BMP and more (HEIC depends on your browser; see below). Select several files at once, up to 300 per batch.</p>
+  <input type="file" id="file" accept="image/*,.webp,.avif,.png,.jpg,.jpeg,.gif,.bmp,.heic,.heif" multiple hidden>
+</div>
+
+<div class="status" id="status" role="status" aria-live="polite"></div>
+<progress id="prog" value="0" max="1" hidden aria-label="Progress"></progress>
+<div class="errs" id="errs" hidden role="alert"></div>
+
+<section id="work" hidden aria-label="Conversion settings and results">
+<h2>1. Images to convert</h2>
+<p class="meta" id="count"></p>
+<ul class="list" id="list" aria-label="Image list"></ul>
+<div class="actions"><button type="button" class="ghost sm" id="clear">Remove all</button></div>
+
+<h2>2. Output settings</h2>
+<fieldset>
+  <legend>Output format and quality</legend>
+  <div class="row">
+    <div><label class="field" for="fmt">Output format</label>
+      <select id="fmt"><option value="jpg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option></select></div>
+    <div><label class="field" for="edge">Max long edge in pixels (0 = no resizing)</label><input type="number" id="edge" value="0" min="0" max="16000" inputmode="numeric"></div>
+  </div>
+  <div id="qwrap"><label class="field" for="quality">Quality: <span id="qv">85</span></label><input type="range" id="quality" min="40" max="100" value="85"></div>
+  <div id="bgwrap"><label class="field" for="bg">Background for transparent areas (used for JPG only)</label><input type="color" id="bg" value="#ffffff"><p class="hint">White by default. PNG and WebP output keeps transparency.</p></div>
+  <p class="hint" id="avifnote"></p>
+  <p class="hint">Metadata (capture date, GPS location, camera details and so on) is <strong>always removed</strong>, because each image is redrawn onto a canvas. There is no option to keep it. Animated GIFs keep only the first frame. Output files keep the original name with a new extension; name clashes get a number such as <code>-2</code>.</p>
+</fieldset>
+<div class="actions"><button type="button" id="go">Convert</button><button type="button" class="ghost" id="cancel" hidden>Cancel</button></div>
+
+<section id="res" hidden aria-label="Conversion results">
+<h2>3. Download</h2>
+<div class="actions"><button type="button" id="dlzip">Download all as ZIP</button></div>
+<p class="hint">The ZIP is stored without compression. To save files one by one, use the "Save" links in the list above.</p>
+</section>
+</section>
+
+<h2>Convert HEIC to JPG or PNG</h2>
+<p>Drop the HEIC (.heic or .heif) files from your iPhone into the box above, choose JPG or PNG, and press Convert. You can add many files at once and download them as a single ZIP. Photo orientation (for example, a portrait shot stored rotated) is applied as recorded in the file.</p>
+<h3>How it works</h3>
+<p>HEIC is a container (HEIF) holding images compressed with HEVC, the same codec family used for video. This page does not bundle an HEVC decoder. Instead:</p>
+<ol>
+<li>Where the browser can open HEIC itself (Safari 17 and later, per Apple), the page lets it do so.</li>
+<li>Otherwise the page parses the HEIF container in JavaScript (about 250 lines: item info, locations, properties, grid layout, rotation and cropping), builds the HEVC codec string from the file, and passes each tile to the browser's WebCodecs <code>VideoDecoder</code>. The browser or OS does the actual HEVC decoding. The tiles are then drawn onto a canvas in order.</li>
+<li>If neither works, the page shows the file name and the reason instead of failing silently.</li>
+</ol>
+<p>Because no codec is bundled, whether HEIC works depends on your browser and device:</p>
+<ul>
+<li><strong>Safari (iPhone, iPad, Mac)</strong>: Safari 17 and later can open HEIC itself. Tested in Safari on an iPhone simulator (iOS 26.5), including orientation.</li>
+<li><strong>Chrome on macOS</strong>: tested and working (Chrome 156). HEVC is decoded through WebCodecs.</li>
+<li><strong>Chrome and Edge on Windows, Chrome on Android</strong>: expected to work if the GPU or device supports HEVC decoding (Chrome 107 and later, based on public documentation; not tested by us). Windows may need the HEVC video extension from Microsoft.</li>
+<li><strong>Firefox and Linux</strong>: often will not work (Chrome on Linux works only with some GPUs). Firefox has not been tested by us. When HEIC cannot be decoded, the page shows the file name and the reason.</li>
+</ul>
+<p>HEIC files are processed in the browser like every other format; the page's code does not send them anywhere.</p>
+
+<h2>If your HEIC will not open</h2>
+<p>The quickest fix is to open this page in Safari, or in Chrome on macOS. To make your iPhone save future photos as JPEG, go to Settings, Camera, Formats and choose "Most Compatible". For photos you already have, sharing from the Photos app can send them as JPEG (for example by Mail or AirDrop; option names vary by iOS version). Note that when you pick a photo from the library in Safari on iPhone, iOS sometimes converts it to JPEG before handing it over, in which case no HEIC handling is needed.</p>
+
+<h2>Convert WebP to JPG</h2>
+<p>Drop your WebP files into the box, choose JPG, and press Convert. Animated WebP keeps only its first frame. JPG cannot hold transparency, so transparent areas are filled with the background colour you pick (white by default).</p>
+
+<h2>Convert AVIF to JPG</h2>
+<p>The steps are the same. Whether AVIF can be read depends on your browser. Current versions of Chrome, Firefox and Safari support it; older ones may not, and the file is then listed as failed. Update your browser or try another one.</p>
+
+<h2>Convert WebP to PNG</h2>
+<p>Choose PNG as the output. PNG keeps transparency, so transparent WebP stays transparent. PNG is lossless, so there is no quality setting. Note that if the WebP was lossy, converting to PNG does not restore quality and the file is usually larger.</p>
+
+<h2>Convert PNG to WebP</h2>
+<p>Choose WebP and adjust the quality slider. For photos, WebP is often much smaller than PNG, and transparency is kept. Some browsers (older Safari, for example) cannot export WebP; in that case the page stops with an error at conversion time.</p>
+
+<h2>Limits and notes</h2>
+<ul>
+<li><strong>HEIC works only where the browser can decode HEVC</strong> (see "How it works" above).</li>
+<li>Colour: HEIC images are exported as the browser renders them in sRGB. HDR and wide-gamut photos (such as Display P3) are mapped to nearby sRGB colours, so brightness and saturation can shift slightly. The page passes the file's colour information (nclx) to the decoder when it can, but does not use embedded ICC profiles on the WebCodecs path.</li>
+<li>HEIC alpha and depth data are not used. Portrait-mode depth maps and extra images in multi-image HEIC files are ignored; only the primary image is exported. The video part of Live Photos is not included.</li>
+<li>HEIC files that use unusual features are not supported: storage method 2, derived images (iden, iovl) and non-HEVC tiles. The page reports the reason. We have tested files generated by macOS <code>sips</code>; not every rotation, mirror or alpha case has been tested.</li>
+<li>Very large images, such as 48-megapixel HEIC, are scaled down to the phone browser's canvas limit (about 16.7 megapixels) when needed, and the list says so.</li>
+<li>Metadata (EXIF, GPS and so on) is removed, because images are redrawn before export.</li>
+<li>Images over 100 megapixels (about 10,000 x 10,000) are not loaded. Large conversions can fail because of browser limits, especially on phones; the file name is then listed.</li>
+<li>Up to 300 files per batch. ZIP output is limited to about 4 GB.</li>
+<li>Characters not allowed in file names (<code>/ \ : * ? " &lt; &gt; |</code>) are replaced with <code>_</code>.</li>
+<li>AVIF output is offered only if your browser can export AVIF.</li>
+</ul>
+
+<h2>FAQ</h2>
+<details><summary>Are my files really not uploaded?</summary>
+<p>Not by this page's code. It works offline, so you can check: load the page, disconnect from the network, and convert. You can also watch the network tab in your browser's developer tools.</p></details>
+<details><summary>Why does HEIC not work in my browser?</summary>
+<p>HEIC photos use the HEVC codec. This page ships no HEVC decoder, so it relies on one in your browser or operating system. If yours does not provide one (Firefox, some Linux setups, Windows without the HEVC extension), HEIC cannot be decoded. Try Safari, or Chrome on macOS.</p></details>
+<details><summary>Will transparent images get a black background as JPG?</summary>
+<p>No. JPG cannot store transparency, so the page paints your chosen background colour (white by default) before exporting. Change it in the background colour field if you want something else.</p></details>
+<details><summary>Is EXIF data or the location kept?</summary>
+<p>No. Every image is redrawn on a canvas and re-encoded, so all metadata is dropped. This also means GPS location is not carried into the converted file.</p></details>
+<details><summary>What quality setting should I use?</summary>
+<p>The default of 85 usually gives a small visible loss for JPG and WebP. Lower it for smaller files; raise it if you see smearing around text or line art. JPG and WebP are lossy, so converting a file more than once reduces quality each time.</p></details>
+
+<footer>
+<p>ramda lab is a personal project. No ads, no cookies. Page views are counted by cookieless Cloudflare Web Analytics. The ZIP writer and the HEIF reader are our own code with no external libraries. HEVC decoding is done by your browser or OS.</p>
+<p><a href="/">ramda lab home</a> / <a href="/image-convert/" hreflang="ja" lang="ja">日本語版</a></p>
+</footer>
+</main>
+
+<script src="/image-convert/convert.js"></script>
+</body>
+</html>

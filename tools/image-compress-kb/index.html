@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>画像圧縮(一括・KB指定) 200KB以下・100KB以下にも | ブラウザだけで完結 | ramda lab</title>
-<meta name="description" content="画像をまとめて圧縮できます。「200KB以下」「100KB以下」のように容量を指定して一括で圧縮できます。JPG・PNG・WebPに対応し、結果はZIPか1枚ずつ保存。画像はどこにも送信しません(このページのコードは通信しません)。">
+<meta name="description" content="画像をまとめて圧縮できます。「200KB以下」「100KB以下」のように容量を指定して一括で圧縮できます。JPG・PNG・WebPに対応し、結果はZIPか1枚ずつ保存。画像はどこにも送信しません。">
 <link rel="canonical" href="https://lab.ramda.io/image-compress-kb/">
 <meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="/style.css">
@@ -34,7 +34,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
 .ng{color:var(--ng);font-weight:700}
 td.num{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
 </style>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "画像圧縮(一括・KB指定) 200KB以下・100KB以下にも", "url": "https://lab.ramda.io/image-compress-kb/", "description": "画像をまとめて圧縮できます。「200KB以下」「100KB以下」のように容量を指定して一括で圧縮できます。JPG・PNG・WebPに対応し、結果はZIPか1枚ずつ保存。画像はどこにも送信しません(このページのコードは通信しません)。", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (ブラウザ)", "browserRequirements": "JavaScript が必要", "inLanguage": "ja", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "画像圧縮(一括・KB指定) 200KB以下・100KB以下にも", "url": "https://lab.ramda.io/image-compress-kb/", "description": "画像をまとめて圧縮できます。「200KB以下」「100KB以下」のように容量を指定して一括で圧縮できます。JPG・PNG・WebPに対応し、結果はZIPか1枚ずつ保存。画像はどこにも送信しません。", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (ブラウザ)", "browserRequirements": "JavaScript が必要", "inLanguage": "ja", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}}</script>
 </head>
 <body>
 <a class="skip" href="#main">本文へ</a>
@@ -43,7 +43,7 @@ td.num{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
 <h1>画像圧縮(一括・KB指定)</h1>
 <p class="lead">「200KB以下」「1MB以下」のように上限の容量を決めて、複数の画像をまとめて小さくします。画質を落とし、足りなければ縮小して、上限に収まる最大限の状態で出力します。</p>
 
-<div class="privacy"><strong>このページのコードは、画像をどこにも送信しません。</strong> このページは、あなたのブラウザの中だけで動きます。画像のアップロード、解析ツール、Cookieはありません。確かめたい場合は、ページを開いたあとに機内モードにするかネットワークを切って、そのまま使ってみてください。</div>
+<div class="privacy"><strong>このページのコードは、画像をどこにも送信しません。</strong> このページは、あなたのブラウザの中だけで動きます。画像のアップロードとCookieはありません。</div>
 
 <div class="drop" id="drop">
   <p><strong>ここに画像をドロップ</strong></p>
@@ -142,7 +142,7 @@ td.num{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
 <p>縦横を小さくしても長辺100ピクセルまで届かない場合は「失敗」と表示し、ZIPには入れません。上限を上げるか、画質の下限を「低め」にして、もう一度試してください。</p></details>
 
 <footer>
-<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告、アクセス解析、Cookieはありません。ZIPの書き出しは自前の実装で、外部ライブラリは使っていません。</p>
+<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告とCookieはありません。アクセス数の集計に、Cookieを使わない Cloudflare Web Analytics が配信側で入っています(ファイルの中身は送りません)。ZIPの書き出しは自前の実装で、外部ライブラリは使っていません。</p>
 <p><a href="/image-renamer/">画像の連番リネームとZIP保存</a> / <a href="/">ramda lab トップへ</a></p>
 </footer>
 </main>
