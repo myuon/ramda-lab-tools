@@ -1,0 +1,57 @@
+:root{
+  --bg:#eef2f6; --panel:#ffffff; --ink:#111d2b; --muted:#4a5a6c; --line:#c9d3de;
+  --accent:#1743b8; --accent-ink:#ffffff; --ok:#0a6b4f; --warn:#7a5200; --warn-bg:#fff3cc; --ng:#9b1c31;
+  --code:#e4eaf1; --focus:#ff9f1a;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --bg:#0f151d; --panel:#172029; --ink:#e7edf3; --muted:#a3b2c2; --line:#2c3a49;
+    --accent:#8fb2ff; --accent-ink:#0c1530; --ok:#6fd6ad; --warn:#ffd979; --warn-bg:#2d2610; --ng:#ff9aab; --code:#1f2b37; --focus:#ffb84d; }
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);line-height:1.75;
+  font-family:system-ui,-apple-system,"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP","Yu Gothic UI",Meiryo,sans-serif;
+  font-size:1rem; overflow-wrap:anywhere}
+.wrap{max-width:46rem;margin:0 auto;padding:0 1rem 4rem}
+header.site{border-bottom:3px solid var(--accent);background:var(--panel)}
+header.site .wrap{padding:.7rem 1rem;display:flex;flex-wrap:wrap;gap:.4rem 1.2rem;align-items:baseline}
+header.site a{color:var(--ink);text-decoration:none;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.85rem}
+header.site a.brand{font-weight:700;letter-spacing:.02em}
+header.site a:hover{text-decoration:underline}
+h1{font-size:1.6rem;line-height:1.35;margin:1.6rem 0 .6rem}
+h2{font-size:1.2rem;line-height:1.4;margin:2.2rem 0 .6rem;padding-left:.7rem;border-left:6px solid var(--accent)}
+h3{font-size:1.02rem;margin:1.4rem 0 .3rem}
+p,ul,ol{margin:.6rem 0}
+a{color:var(--accent);text-underline-offset:.15em}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.lead{color:var(--muted)}
+.disclaimer{background:var(--warn-bg);color:var(--ink);border:2px solid var(--warn);padding:.8rem 1rem;margin:1rem 0;font-weight:700}
+.disclaimer a{color:inherit}
+.card{background:var(--panel);border:1px solid var(--line);padding:1rem;margin:1rem 0}
+fieldset{border:1px solid var(--line);margin:1rem 0;padding:.8rem 1rem;background:var(--panel)}
+legend{font-weight:700;padding:0 .3rem}
+.opt{display:flex;gap:.6rem;align-items:flex-start;min-height:44px;padding:.35rem 0}
+.opt input{margin-top:.45rem;width:1.15rem;height:1.15rem;flex:none}
+label.field{display:block;font-weight:600;margin-top:.8rem}
+input[type=text],input[type=number],input[inputmode]{width:100%;max-width:18rem;font:inherit;padding:.55rem .6rem;border:1px solid var(--muted);background:var(--bg);color:var(--ink);min-height:44px}
+.hint{font-size:.88rem;color:var(--muted);margin:.2rem 0}
+button{font:inherit;font-weight:700;min-height:44px;padding:.5rem 1.3rem;border:2px solid var(--accent);background:var(--accent);color:var(--accent-ink);cursor:pointer}
+button.ghost{background:transparent;color:var(--accent)}
+.actions{display:flex;flex-wrap:wrap;gap:.6rem;margin:1rem 0}
+.result{border:2px solid var(--ink);background:var(--panel);padding:1rem;margin:1.2rem 0}
+.result h2{margin-top:0;border:0;padding:0}
+.tag{display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;padding:.1rem .5rem;border:1px solid currentColor;margin-right:.4rem}
+.tag.req{color:var(--ng)} .tag.not{color:var(--ok)} .tag.chk{color:var(--warn)}
+@media (prefers-color-scheme:dark){.tag.chk{color:var(--warn)}}
+table{border-collapse:collapse;width:100%;font-size:.92rem;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.4rem .55rem;text-align:left;vertical-align:top;min-width:6.5rem}
+th{background:var(--code)}
+code{background:var(--code);padding:.05rem .3rem;font-size:.9em}
+ol.src li,ul.src li{margin:.4rem 0}
+.meta{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;color:var(--muted)}
+details{border:1px solid var(--line);background:var(--panel);padding:.4rem 1rem;margin:.8rem 0}
+summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+footer{margin-top:3rem;border-top:1px solid var(--line);padding-top:1rem;font-size:.88rem;color:var(--muted)}
+[hidden]{display:none!important}
+.skip{position:absolute;left:-999px}.skip:focus{left:1rem;top:1rem;background:var(--panel);padding:.5rem;z-index:9}
+@media (min-width:700px){h1{font-size:2rem}.wrap{padding:0 1.5rem 5rem}}

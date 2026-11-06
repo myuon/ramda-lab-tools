@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画像圧縮(一括・KB指定) 200KB以下・100KB以下にも | ブラウザだけで完結 | ramda lab</title>
+<meta name="description" content="画像をまとめて圧縮できます。「200KB以下」「100KB以下」のように容量を指定して一括で圧縮できます。JPG・PNG・WebPに対応し、結果はZIPか1枚ずつ保存。画像はどこにも送信しません(このページのコードは通信しません)。">
+<link rel="canonical" href="https://lab.ramda.io/image-compress-kb/">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/style.css">
+<style>
+.drop{border:3px dashed var(--accent);background:var(--panel);padding:1.4rem 1rem;text-align:center;margin:1rem 0}
+.drop.over{background:var(--code)}
+.drop p{margin:.3rem 0}
+.row{display:flex;flex-wrap:wrap;gap:.6rem 1rem}
+.row > div{flex:1 1 9rem;min-width:8rem}
+.row input[type=text],.row input[type=number],.row select{max-width:none}
+select{font:inherit;padding:.55rem .6rem;border:1px solid var(--muted);background:var(--bg);color:var(--ink);min-height:44px;width:100%}
+.presets{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.presets button{padding:.3rem .8rem}
+button.sm{min-height:44px;padding:.4rem .8rem}
+.status{min-height:1.5em;margin:.4rem 0}
+.errs{background:var(--warn-bg);border:2px solid var(--warn);padding:.6rem .9rem;margin:.8rem 0;font-size:.92rem}
+.errs ul{margin:.3rem 0;padding-left:1.2rem}
+progress{width:100%;height:1.2rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.privacy{border:2px solid var(--ok);background:var(--panel);padding:.7rem 1rem;margin:1rem 0}
+.files{list-style:none;margin:.6rem 0;padding:0}
+.files li{display:flex;gap:.5rem;align-items:center;border-bottom:1px solid var(--line);padding:.2rem 0;min-height:44px}
+.files .nm{flex:1;min-width:0;font-size:.9rem}
+.files .sz{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;color:var(--muted);white-space:nowrap}
+.files button{min-width:44px;padding:0}
+.ok{color:var(--ok);font-weight:700}
+.ng{color:var(--ng);font-weight:700}
+td.num{font-family:ui-monospace,Menlo,Consolas,monospace;white-space:nowrap}
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "画像圧縮(一括・KB指定) 200KB以下・100KB以下にも", "url": "https://lab.ramda.io/image-compress-kb/", "description": "画像をまとめて圧縮できます。「200KB以下」「100KB以下」のように容量を指定して一括で圧縮できます。JPG・PNG・WebPに対応し、結果はZIPか1枚ずつ保存。画像はどこにも送信しません(このページのコードは通信しません)。", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (ブラウザ)", "browserRequirements": "JavaScript が必要", "inLanguage": "ja", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">本文へ</a>
+<header class="site"><div class="wrap"><a class="brand" href="/">ramda lab</a></div></header>
+<main class="wrap" id="main">
+<h1>画像圧縮(一括・KB指定)</h1>
+<p class="lead">「200KB以下」「1MB以下」のように上限の容量を決めて、複数の画像をまとめて小さくします。画質を落とし、足りなければ縮小して、上限に収まる最大限の状態で出力します。</p>
+
+<div class="privacy"><strong>このページのコードは、画像をどこにも送信しません。</strong> このページは、あなたのブラウザの中だけで動きます。画像のアップロード、解析ツール、Cookieはありません。確かめたい場合は、ページを開いたあとに機内モードにするかネットワークを切って、そのまま使ってみてください。</div>
+
+<div class="drop" id="drop">
+  <p><strong>ここに画像をドロップ</strong></p>
+  <p class="hint">または</p>
+  <p><button type="button" id="pick">画像を選ぶ</button></p>
+  <p class="hint">JPG、PNG、WebP、GIFに対応。複数選択できます(1回に300枚まで)。</p>
+  <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple hidden>
+</div>
+
+<div class="status" id="status" role="status" aria-live="polite"></div>
+<progress id="prog" value="0" max="1" hidden aria-label="処理の進み具合"></progress>
+<div class="errs" id="errs" hidden></div>
+
+<section id="work" hidden aria-label="圧縮の設定">
+<h2>1. 上限の容量</h2>
+<fieldset>
+  <legend>1枚あたりの上限</legend>
+  <div class="presets" role="group" aria-label="よく使う上限">
+    <button type="button" class="ghost sm" data-kb="100">100KB</button>
+    <button type="button" class="ghost sm" data-kb="200">200KB</button>
+    <button type="button" class="ghost sm" data-kb="300">300KB</button>
+    <button type="button" class="ghost sm" data-kb="500">500KB</button>
+    <button type="button" class="ghost sm" data-kb="1000">1MB</button>
+    <button type="button" class="ghost sm" data-kb="2000">2MB</button>
+  </div>
+  <div class="row">
+    <div><label class="field" for="kb">上限(KB)</label><input type="number" id="kb" value="200" min="5" max="50000" inputmode="numeric"></div>
+    <div><label class="field" for="fmt">出力形式</label>
+      <select id="fmt"><option value="jpg">JPG</option><option value="webp">WebP(対応ブラウザのみ)</option></select></div>
+  </div>
+  <p class="hint">1KBは1,000バイトで計算します。1,024バイトで数える提出先でも収まる、安全側の数え方です。</p>
+</fieldset>
+
+<h2>2. 画質と大きさ</h2>
+<fieldset>
+  <legend>どこまで落としてよいか</legend>
+  <div class="row">
+    <div><label class="field" for="qmin">画質の下限</label>
+      <select id="qmin"><option value="70">高め(70)。先に縮小する</option><option value="50" selected>標準(50)</option><option value="30">低め(30)。画質を優先して落とす</option></select></div>
+    <div><label class="field" for="edge">長辺の上限ピクセル(0で指定なし)</label><input type="number" id="edge" value="0" min="0" max="16000" inputmode="numeric"></div>
+  </div>
+  <div class="opt"><input type="checkbox" id="keep" checked><label for="keep">すでに上限以下の画像は、加工せずそのまま入れる(形式も名前も変わりません)</label></div>
+  <p class="hint">まず画質を下げて上限に入るか試し、下限まで下げても入らなければ、画像の縦横を少しずつ小さくします。長辺が100ピクセルより小さくなる場合は、失敗として表示します。</p>
+  <p class="hint">圧縮した画像はEXIF(撮影日時や位置情報など)が消えます。PNGの透明部分はJPGでは白になります。GIFは最初の1コマだけになります。</p>
+</fieldset>
+
+<h2>3. 追加した画像</h2>
+<div class="actions" role="group" aria-label="操作">
+  <button type="button" id="go">圧縮する</button>
+  <button type="button" class="ghost" id="stop" hidden>中止する</button>
+  <button type="button" class="ghost" id="clear">すべて外す</button>
+</div>
+<p class="meta" id="count"></p>
+<ul class="files" id="files" aria-label="追加した画像"></ul>
+</section>
+
+<section id="res" hidden aria-label="結果">
+<h2>結果</h2>
+<p id="sum"></p>
+<div class="actions"><button type="button" id="dlzip">ZIPでまとめてダウンロード</button></div>
+<table>
+<caption class="hint">画像ごとの結果。「保存」で1枚ずつも取り出せます。</caption>
+<thead><tr><th scope="col">元の名前</th><th scope="col">出力名</th><th scope="col">元の容量</th><th scope="col">結果の容量</th><th scope="col">大きさ(画質)</th><th scope="col">状態</th><th scope="col">保存</th></tr></thead>
+<tbody id="rows"></tbody>
+</table>
+<p class="hint">ZIPは圧縮なし(保存のみ)で作ります。同じ名前が複数ある場合は、あとの名前に <code>-2</code> のような番号を付けます。</p>
+</section>
+
+<h2>提出先ごとの容量の例(公式の案内)</h2>
+<p>容量の条件は提出先ごとに違い、上限だけでなく下限があることもあります。確認できた例です(確認日 2026-11-07)。</p>
+<table>
+<thead><tr><th>提出先</th><th>条件</th><th>出典</th></tr></thead>
+<tbody>
+<tr><td>マイナンバーカード オンライン申請の顔写真</td><td>jpeg、RGBカラー、<strong>20KB〜7MB</strong>、幅・高さとも480〜6000px。上限だけでなく<strong>下限20KB</strong>がある</td><td><a href="https://www.kojinbango-card.go.jp/apprec/apply/facephoto/" rel="noopener">個人番号カード総合サイト</a></td></tr>
+<tr><td>e-Tax 添付書類のイメージデータ</td><td>形式は<strong>PDFのみ</strong>。1送信あたり合計14.0MB・136ファイルまで。画像ファイル(JPG)のまま出す手続ではないため、画像を圧縮するよりPDFにまとめる作業になる(<a href="/pdf-merge/">PDF結合ツール</a>)</td><td><a href="https://www.e-tax.nta.go.jp/imagedata/imagedata1.htm" rel="noopener">国税庁 e-Tax「添付書類のイメージデータによる提出について」</a></td></tr>
+</tbody>
+</table>
+<p>このページの「上限の容量」には、提出先の上限よりやや小さい値を入れると安心です。このツールは上限に収めることはしても、下限に届かせることはしません。顔写真のように下限がある場合は、結果のサイズが下限を下回っていないか確認してください。ここにない提出先(就職サイト、学校の出願フォームなど)は、一次情報で確認できていないため載せていません。提出先の案内で確認してください。このページは、各サービスの規則に合うことを保証するものではありません。</p>
+<p>使い道の例: 応募や申請の添付画像が容量オーバーで受け付けられないとき、メールやチャットに写真を何枚も軽くして送るとき、サイトに載せる画像を減らすとき。ファイル名を連番にしたい場合は <a href="/image-renamer/">画像の連番リネームとZIP保存</a> も使えます。</p>
+
+<h2>制限と注意</h2>
+<ul>
+<li>画質を下げるため、元の画像より粗くなります。文字が多い画像は、縮小や圧縮で読みにくくなることがあります。結果の画像を、提出前に目で確認してください。</li>
+<li>HEIC/HEIF(iPhoneの標準形式)の変換部品は入れていません。Safariなど、ブラウザ自身がHEICを表示できる環境では読める場合がありますが、動作は保証しません。読めなかった画像は上に一覧が出ます。</li>
+<li>1枚あたり1億画素(約10,000×10,000)を超える画像は、メモリを使い切るおそれがあるため処理しません。スマホでは、それより小さい画像でも失敗することがあります。</li>
+<li>1回に追加できるのは300枚までです。結果の合計が約1.5GBを超えそうなときは、そこで止めて知らせます。</li>
+<li>ブラウザの描画の仕組みで圧縮しているため、他のソフトと同じKBでも、見た目の画質は同じになりません。</li>
+</ul>
+
+<h2>よくある質問</h2>
+<details><summary>本当にアップロードされませんか。</summary>
+<p>されません。このページは圧縮もZIP作成も、すべて自分のページ内のコードで行い、外部への通信をしません。ページを開いたあとにネットワークを切っても同じように動きます。ブラウザの開発者ツールのネットワーク欄でも確認できます。</p></details>
+<details><summary>指定したKBより小さくなりすぎることがあります。</summary>
+<p>あります。画質は段階的に試すため、上限ぎりぎりにならないことがあります。また、すでに上限以下の画像は、設定どおりそのまま入れます。</p></details>
+<details><summary>上限に収まらなかった画像はどうなりますか。</summary>
+<p>縦横を小さくしても長辺100ピクセルまで届かない場合は「失敗」と表示し、ZIPには入れません。上限を上げるか、画質の下限を「低め」にして、もう一度試してください。</p></details>
+
+<footer>
+<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告、アクセス解析、Cookieはありません。ZIPの書き出しは自前の実装で、外部ライブラリは使っていません。</p>
+<p><a href="/image-renamer/">画像の連番リネームとZIP保存</a> / <a href="/">ramda lab トップへ</a></p>
+</footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+var MAX_PIXELS = 100e6, MAX_FILES = 300, MIN_EDGE = 100, MAX_TOTAL = 1.5e9;
+var EXT_OK = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+var files = [];      // {id,file}
+var results = [];    // {name,out,before,after,w,h,q,status,blob,msg}
+var nextId = 1, busy = false, cancel = false;
+var $ = function(id){return document.getElementById(id);};
+function setStatus(t){ $('status').textContent = t; }
+function setProg(v,m){ var p=$('prog'); if(v==null){p.hidden=true;return;} p.hidden=false; p.max=m; p.value=v; }
+function tick(){ return new Promise(function(r){setTimeout(r,0);}); }
+function mk(tag,cls,text){var e=document.createElement(tag); if(cls)e.className=cls; if(text!=null)e.textContent=text; return e;}
+function fmtSize(n){ if(n<1000) return n+' B'; return n>=1e6?(n/1e6).toFixed(2)+' MB':(n/1e3).toFixed(1)+' KB'; }
+function showErrs(list){
+  var e=$('errs'); e.textContent='';
+  if(!list.length){e.hidden=true;return;}
+  e.hidden=false;
+  e.appendChild(mk('strong',null,'次のファイルは追加できませんでした。'));
+  var ul=document.createElement('ul');
+  list.forEach(function(s){ul.appendChild(mk('li',null,s));});
+  e.appendChild(ul);
+}
+function loadImage(url){
+  return new Promise(function(res,rej){
+    var im=new Image(); im.onload=function(){res(im);}; im.onerror=function(){rej(new Error('画像として読み込めませんでした'));}; im.src=url;
+  });
+}
+function canvasBlob(c,type,q){ return new Promise(function(res){ c.toBlob(res,type,q); }); }
+
+/* ---------- 追加 ---------- */
+function addFiles(list){
+  if(busy) return;
+  var errs=[], ok=[];
+  list.forEach(function(f){
+    if(!(EXT_OK.test(f.name)||/^image\//.test(f.type))) errs.push(f.name+' : 画像ではないため無視しました');
+    else ok.push(f);
+  });
+  var room=MAX_FILES-files.length;
+  if(ok.length>room){ errs.push('1回に追加できるのは'+MAX_FILES+'枚までです。'+(ok.length-room)+'枚は追加していません。'); ok=ok.slice(0,Math.max(0,room)); }
+  ok.forEach(function(f){ files.push({id:nextId++,file:f}); });
+  showErrs(errs);
+  setStatus(ok.length+'枚を追加しました。合計'+files.length+'枚。');
+  renderFiles();
+}
+function renderFiles(){
+  $('work').hidden = files.length===0;
+  $('count').textContent = files.length+'枚('+fmtSize(files.reduce(function(a,x){return a+x.file.size;},0))+')';
+  var ul=$('files'); ul.textContent='';
+  files.forEach(function(it){
+    var li=mk('li');
+    var nm=mk('span','nm',it.file.name); nm.title=it.file.name;
+    li.appendChild(nm); li.appendChild(mk('span','sz',fmtSize(it.file.size)));
+    var x=mk('button','ghost','×'); x.type='button'; x.setAttribute('aria-label','外す ('+it.file.name+')');
+    x.addEventListener('click',function(){ files=files.filter(function(f){return f!==it;}); renderFiles(); setStatus('1枚外しました。残り'+files.length+'枚。'); });
+    li.appendChild(x); ul.appendChild(li);
+  });
+  $('go').disabled = busy || !files.length;
+}
+
+/* ---------- 圧縮 ---------- */
+function baseName(n){ return n.replace(/\.[^.]*$/,'').replace(/[\\\/:*?"<>|\u0000-\u001f]/g,'_')||'image'; }
+function draw(im,w,h,jpg){
+  var c=document.createElement('canvas'); c.width=w; c.height=h;
+  var ctx=c.getContext('2d');
+  if(!ctx) throw new Error('キャンバスを作れません(画像が大きすぎる可能性)');
+  if(jpg){ ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); }
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.drawImage(im,0,0,w,h);
+  return c;
+}
+async function encode(im,w,h,mime,q){
+  var c=draw(im,w,h,mime==='image/jpeg');
+  var b=await canvasBlob(c,mime,q/100);
+  c.width=c.height=0;
+  if(!b) throw new Error('変換に失敗しました(画像が大きすぎる可能性)');
+  if(b.type!==mime) throw new Error('このブラウザは'+(mime==='image/webp'?'WebP':'JPG')+'への書き出しに対応していません');
+  return b;
+}
+async function shrink(file,target,mime,qmin,edge){
+  var url=URL.createObjectURL(file), im;
+  try{
+    im=await loadImage(url);
+    var W=im.naturalWidth, H=im.naturalHeight;
+    if(!W||!H) throw new Error('サイズを取得できません');
+    if(W*H>MAX_PIXELS) throw new Error('画像が大きすぎます('+W+'×'+H+'、上限1億画素)');
+    var scale=1;
+    if(edge>0&&Math.max(W,H)>edge) scale=edge/Math.max(W,H);
+    for(var step=0;step<14;step++){
+      var w=Math.max(1,Math.round(W*scale)), h=Math.max(1,Math.round(H*scale));
+      if(Math.max(w,h)<MIN_EDGE&&Math.max(W,H)>=MIN_EDGE) break;
+      var best=null, hiQ=92;
+      var b=await encode(im,w,h,mime,hiQ);
+      if(b.size<=target){ return {blob:b,w:w,h:h,q:hiQ}; }
+      var lastSize=b.size;
+      var bl=await encode(im,w,h,mime,qmin);
+      lastSize=bl.size;
+      if(bl.size<=target){
+        best={blob:bl,w:w,h:h,q:qmin};
+        var lo=qmin, hi=hiQ;
+        while(hi-lo>3){
+          var mid=Math.round((lo+hi)/2), bm=await encode(im,w,h,mime,mid);
+          if(bm.size<=target){ best={blob:bm,w:w,h:h,q:mid}; lo=mid; } else hi=mid;
+        }
+        return best;
+      }
+      // 画質の下限でも入らない: 縦横を縮める。面積はおよそ容量に比例する。
+      var f=Math.sqrt(target/lastSize)*0.97;
+      scale*=Math.min(0.92,Math.max(0.4,f));
+      await tick();
+    }
+    throw new Error('長辺'+MIN_EDGE+'ピクセルまで縮小しても上限に届きませんでした');
+  } finally { URL.revokeObjectURL(url); }
+}
+async function run(){
+  if(busy||!files.length) return;
+  var kb=parseFloat($('kb').value);
+  if(!(kb>=5)){ setStatus('上限は5KB以上の数字で入力してください。'); $('kb').focus(); return; }
+  var target=Math.floor(kb*1000), fmt=$('fmt').value, mime=fmt==='webp'?'image/webp':'image/jpeg';
+  var qmin=parseInt($('qmin').value,10), edge=parseInt($('edge').value,10)||0, keep=$('keep').checked;
+  busy=true; cancel=false; results=[]; $('res').hidden=true; showErrs([]);
+  $('go').disabled=true; $('pick').disabled=true; $('stop').hidden=false;
+  var snap=files.slice(), total=0, used={}, stopped='';
+  try{
+    for(var i=0;i<snap.length;i++){
+      if(cancel){ stopped='中止しました。'; break; }
+      var f=snap[i].file;
+      setStatus('圧縮中 '+(i+1)+' / '+snap.length+' : '+f.name);
+      setProg(i,snap.length);
+      var r={name:f.name,before:f.size,status:'ok'};
+      try{
+        if(keep&&f.size<=target){ var u0=URL.createObjectURL(f); try{ await loadImage(u0); } finally { URL.revokeObjectURL(u0); } r.blob=f; r.out=f.name; r.after=f.size; r.msg='そのまま(上限以下)'; r.w=0; r.h=0; }
+        else {
+          var s=await shrink(f,target,mime,qmin,edge);
+          r.blob=s.blob; r.after=s.blob.size; r.w=s.w; r.h=s.h; r.q=s.q;
+          r.out=baseName(f.name)+(fmt==='webp'?'.webp':'.jpg'); r.msg='圧縮しました';
+        }
+        if(total+r.after>MAX_TOTAL){ stopped='結果の合計が約1.5GBを超えるため、ここで止めました。残りは分けて処理してください。'; r.status='ng'; r.msg='未処理'; r.blob=null; results.push(r); break; }
+        total+=r.after;
+        var key=r.out.toLowerCase();
+        if(used[key]){ used[key]++; r.out=r.out.replace(/(\.[^.]*)$/,'-'+used[key]+'$1'); used[r.out.toLowerCase()]=1; } else used[key]=1;
+      } catch(e){ r.status='ng'; r.msg='失敗: '+e.message; r.blob=null; r.out='—'; r.after=0; }
+      results.push(r);
+      await tick();
+    }
+  } finally {
+    busy=false; setProg(null); $('go').disabled=false; $('pick').disabled=false; $('stop').hidden=true;
+  }
+  renderResults(stopped,target);
+}
+function renderResults(stopped,target){
+  var tb=$('rows'); tb.textContent='';
+  var okN=0, ngN=0, aft=0, bef=0;
+  results.forEach(function(r){
+    var tr=document.createElement('tr');
+    tr.appendChild(mk('td',null,r.name)); tr.appendChild(mk('td',null,r.out||'—'));
+    tr.appendChild(mk('td','num',fmtSize(r.before)));
+    tr.appendChild(mk('td','num',r.blob?fmtSize(r.after):'—'));
+    tr.appendChild(mk('td','num',r.blob&&r.w?(r.w+'×'+r.h+'('+r.q+')'):'—'));
+    var st=mk('td',r.status==='ok'?'ok':'ng',(r.status==='ok'?'成功: ':'')+r.msg); tr.appendChild(st);
+    var sv=mk('td');
+    if(r.blob){
+      okN++; aft+=r.after; bef+=r.before;
+      var b=mk('button','ghost sm','保存'); b.type='button'; b.setAttribute('aria-label','保存 ('+r.out+')');
+      b.addEventListener('click',function(){ save(r.blob,r.out); });
+      sv.appendChild(b);
+    } else ngN++;
+    tr.appendChild(sv); tb.appendChild(tr);
+  });
+  $('res').hidden=false;
+  $('dlzip').disabled=okN===0;
+  var over=results.filter(function(r){return r.blob&&r.after>target;}).length;
+  $('sum').textContent=okN+'枚が成功、'+ngN+'枚が失敗または未処理です。成功分の合計は '+fmtSize(bef)+' から '+fmtSize(aft)+' になりました。'+(over?'(上限を超えている画像が'+over+'枚あります。確認してください)':'')+(stopped?' '+stopped:'');
+  setStatus(stopped||'完了しました。');
+  $('res').scrollIntoView({block:'start'});
+}
+function save(blob,name){
+  var url=URL.createObjectURL(blob), a=document.createElement('a');
+  a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){URL.revokeObjectURL(url);},60000);
+}
+
+/* ---------- ZIP(保存のみ) ---------- */
+var CRC=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){var c=0xFFFFFFFF;for(var i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function dosTime(ms){
+  var d=new Date(ms||Date.now()); var y=d.getFullYear(); if(y<1980){y=1980;}
+  return {t:(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1), d:((y-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate()};
+}
+async function buildZip(entries){
+  var parts=[], central=[], offset=0, enc=new TextEncoder();
+  for(var i=0;i<entries.length;i++){
+    var e=entries[i], nm=enc.encode(e.name), buf=new Uint8Array(await e.blob.arrayBuffer());
+    var crc=crc32(buf), tm=dosTime(Date.now()), size=buf.length;
+    var lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+    lh.setUint16(10,tm.t,true); lh.setUint16(12,tm.d,true); lh.setUint32(14,crc,true);
+    lh.setUint32(18,size,true); lh.setUint32(22,size,true); lh.setUint16(26,nm.length,true); lh.setUint16(28,0,true);
+    parts.push(lh.buffer,nm,buf);
+    var ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
+    ch.setUint16(12,tm.t,true); ch.setUint16(14,tm.d,true); ch.setUint32(16,crc,true);
+    ch.setUint32(20,size,true); ch.setUint32(24,size,true); ch.setUint16(28,nm.length,true);
+    ch.setUint32(42,offset,true);
+    central.push(ch.buffer,nm);
+    offset+=30+nm.length+size;
+    if(i%3===2) await tick();
+  }
+  var csize=0; central.forEach(function(p){csize+=p.byteLength;});
+  var end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,entries.length,true); end.setUint16(10,entries.length,true);
+  end.setUint32(12,csize,true); end.setUint32(16,offset,true);
+  return new Blob(parts.concat(central,[end.buffer]),{type:'application/zip'});
+}
+async function dlZip(){
+  var ents=results.filter(function(r){return r.blob;}).map(function(r){return {name:r.out,blob:r.blob};});
+  if(!ents.length||busy) return;
+  busy=true; $('dlzip').disabled=true; setStatus('ZIPを作成中…');
+  try{
+    var z=await buildZip(ents);
+    save(z,'compressed.zip');
+    setStatus(ents.length+'枚をZIPにしました('+fmtSize(z.size)+')。ダウンロードを確認してください。');
+  } finally { busy=false; $('dlzip').disabled=false; }
+}
+
+/* ---------- イベント ---------- */
+$('pick').onclick=function(){$('file').click();};
+$('file').onchange=function(){ var l=Array.prototype.slice.call(this.files); this.value=''; addFiles(l); };
+var dz=$('drop');
+['dragenter','dragover'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.add('over');});});
+['dragleave','drop'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.remove('over');});});
+dz.addEventListener('drop',function(e){ if(e.dataTransfer&&e.dataTransfer.files.length) addFiles(Array.prototype.slice.call(e.dataTransfer.files)); });
+Array.prototype.forEach.call(document.querySelectorAll('.presets button'),function(b){
+  b.addEventListener('click',function(){ $('kb').value=b.getAttribute('data-kb'); setStatus('上限を'+b.textContent+'にしました。'); });
+});
+$('go').onclick=run;
+$('stop').onclick=function(){ cancel=true; setStatus('中止しています…'); };
+$('dlzip').onclick=dlZip;
+$('clear').onclick=function(){ if(busy) return; files=[]; results=[]; $('res').hidden=true; showErrs([]); renderFiles(); setStatus('すべて外しました。'); };
+renderFiles();
+})();
+</script>
+</body>
+</html>

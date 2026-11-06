@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画像を連番にリネームして並べ替え、ZIPでまとめて保存 | ブラウザだけで完結 | ramda lab</title>
+<meta name="description" content="複数の画像をドラッグで並べ替え、001、002…の連番ファイル名に一括変更してZIPで保存できます。JPG・PNG・WebPへの変換や縮小も可能。画像はどこにも送信しません(このページのコードは通信しません)。">
+<link rel="canonical" href="https://lab.ramda.io/image-renamer/">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/style.css">
+<style>
+.drop{border:3px dashed var(--accent);background:var(--panel);padding:1.4rem 1rem;text-align:center;margin:1rem 0}
+.drop.over{background:var(--code)}
+.drop p{margin:.3rem 0}
+.row{display:flex;flex-wrap:wrap;gap:.6rem 1rem}
+.row > div{flex:1 1 9rem;min-width:8rem}
+.row input[type=text],.row input[type=number],.row select{max-width:none}
+select{font:inherit;padding:.55rem .6rem;border:1px solid var(--muted);background:var(--bg);color:var(--ink);min-height:44px;width:100%}
+input[type=range]{width:100%;min-height:44px}
+.preview{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88rem;background:var(--code);padding:.6rem .8rem;margin:.6rem 0;overflow-x:auto;white-space:pre}
+.grid{list-style:none;margin:1rem 0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));gap:.6rem}
+.item{background:var(--panel);border:1px solid var(--line);padding:.4rem;display:flex;flex-direction:column;gap:.25rem;position:relative}
+.item.dragging{opacity:.45}
+.item.target{outline:3px solid var(--focus)}
+.item img{width:100%;aspect-ratio:1/1;object-fit:contain;background:var(--code);display:block}
+.item .ph{width:100%;aspect-ratio:1/1;background:var(--code);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.8rem}
+.item .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.75rem;color:var(--muted)}
+.item .nn{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.78rem;font-weight:700;line-height:1.35}
+.item .on{font-size:.72rem;color:var(--muted);line-height:1.3;max-height:2.6em;overflow:hidden}
+.item .ctl{display:flex;gap:.25rem;flex-wrap:wrap}
+.item .ctl button{min-width:44px;min-height:44px;padding:0;font-size:1rem;flex:1 1 0}
+button.sm{min-height:44px;padding:.4rem .8rem}
+.drag{touch-action:none;cursor:grab}
+.status{min-height:1.5em;margin:.4rem 0}
+.errs{background:var(--warn-bg);border:2px solid var(--warn);padding:.6rem .9rem;margin:.8rem 0;font-size:.92rem}
+.errs ul{margin:.3rem 0;padding-left:1.2rem}
+progress{width:100%;height:1.2rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.privacy{border:2px solid var(--ok);background:var(--panel);padding:.7rem 1rem;margin:1rem 0}
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "画像を連番にリネームして並べ替え、ZIPでまとめて保存", "url": "https://lab.ramda.io/image-renamer/", "description": "複数の画像をドラッグで並べ替え、001、002…の連番ファイル名に一括変更してZIPで保存できます。JPG・PNG・WebPへの変換や縮小も可能。画像はどこにも送信しません(このページのコードは通信しません)。", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (ブラウザ)", "browserRequirements": "JavaScript が必要", "inLanguage": "ja", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">本文へ</a>
+<header class="site"><div class="wrap"><a class="brand" href="/">ramda lab</a></div></header>
+<main class="wrap" id="main">
+<h1>画像を連番にリネームして並べ替え、ZIPで保存</h1>
+<p class="lead">複数の画像を好きな順に並べて、<code>photo_001.jpg</code>、<code>photo_002.jpg</code>…のように一括で名前を付け直し、ZIPにまとめます。</p>
+
+<div class="privacy"><strong>このページのコードは、画像をどこにも送信しません。</strong> このページは、あなたのブラウザの中だけで動きます。画像のアップロード、解析ツール、Cookieはありません。確かめたい場合は、ページを開いたあとに機内モードにするかネットワークを切って、そのまま使ってみてください。</div>
+
+<div class="drop" id="drop">
+  <p><strong>ここに画像をドロップ</strong></p>
+  <p class="hint">または</p>
+  <p><button type="button" id="pick">画像を選ぶ</button></p>
+  <p class="hint">JPG、PNG、WebP、GIFに対応。複数選択できます。</p>
+  <input type="file" id="file" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif,.heic,.heif" multiple hidden>
+</div>
+
+<div class="status" id="status" role="status" aria-live="polite"></div>
+<progress id="prog" value="0" max="1" hidden aria-label="処理の進み具合"></progress>
+<div class="errs" id="errs" hidden></div>
+
+<section id="work" hidden aria-label="並べ替えとリネーム">
+<h2>1. 並べ替え</h2>
+<p class="hint">各画像の「つかむ」ボタンをドラッグするか(マウスでもタッチでも可)、「前へ」「後ろへ」ボタンで動かせます。</p>
+<div class="actions" role="group" aria-label="自動で並べ替え">
+  <button type="button" class="ghost sm" id="s-name">名前順(自然順)</button>
+  <button type="button" class="ghost sm" id="s-mtime">更新日時順</button>
+  <button type="button" class="ghost sm" id="s-exif">撮影日時順(EXIF)</button>
+  <button type="button" class="ghost sm" id="s-rev">逆順にする</button>
+  <button type="button" class="ghost sm" id="clear">すべて外す</button>
+</div>
+<p class="hint">名前順は「2」が「10」より前に来る自然順です。撮影日時順は、JPEGのEXIFに撮影日時がある画像が対象で、ないものは更新日時で代用します。</p>
+<p class="meta" id="count"></p>
+<ol class="grid" id="grid" aria-label="画像の並び順"></ol>
+
+<h2>2. ファイル名のルール</h2>
+<fieldset>
+  <legend>連番の付け方</legend>
+  <div class="row">
+    <div><label class="field" for="prefix">先頭の文字</label><input type="text" id="prefix" value="photo" autocomplete="off"></div>
+    <div><label class="field" for="start">開始番号</label><input type="number" id="start" value="1" min="0" max="999999" inputmode="numeric"></div>
+    <div><label class="field" for="digits">桁数(0埋め)</label><input type="number" id="digits" value="3" min="1" max="8" inputmode="numeric"></div>
+  </div>
+  <div class="row">
+    <div><label class="field" for="sep">区切り文字</label><input type="text" id="sep" value="_" autocomplete="off"></div>
+    <div><label class="field" for="suffix">末尾の文字(省略可)</label><input type="text" id="suffix" value="" autocomplete="off"></div>
+  </div>
+  <p class="hint">例: 先頭「photo」、区切り「_」、桁数3、開始1なら <code>photo_001</code>。先頭や末尾を空にすると、その分の区切りは付きません。</p>
+  <div class="preview" id="preview" aria-live="polite"></div>
+</fieldset>
+
+<h2>3. 形式の変換(任意)</h2>
+<fieldset>
+  <legend>出力形式</legend>
+  <div class="row">
+    <div><label class="field" for="fmt">形式</label>
+      <select id="fmt"><option value="keep">変換しない(元の形式のまま)</option><option value="jpg">JPG に変換</option><option value="png">PNG に変換</option><option value="webp">WebP に変換</option></select></div>
+    <div><label class="field" for="edge">長辺の最大ピクセル(0で縮小なし)</label><input type="number" id="edge" value="0" min="0" max="16000" inputmode="numeric" disabled></div>
+  </div>
+  <div id="qwrap" hidden><label class="field" for="quality">画質: <span id="qv">85</span></label><input type="range" id="quality" min="40" max="100" value="85"></div>
+  <p class="hint">変換しないときは、元のファイルをそのまま入れるので画質は変わらず、EXIF(撮影日時や位置情報など)も残ります。変換すると、画像を描き直すため<strong>EXIFは消えます</strong>。GIFを変換すると最初の1コマだけになります。透明部分はJPGでは白になります。</p>
+</fieldset>
+
+<h2>4. ダウンロード</h2>
+<div class="actions"><button type="button" id="dl">ZIPでまとめてダウンロード</button></div>
+<p class="hint">ZIPは圧縮なし(保存のみ)で作ります。画像はもともと圧縮されているため、サイズはほとんど変わりません。</p>
+</section>
+
+<h2>書類の写真を順番どおりに整えてから、PDFにまとめる</h2>
+<p>領収書や契約書などを、スマホで1枚ずつ撮ったりスキャンしたりすると、ファイル名が <code>IMG_0012</code> のように撮影順でも内容の順でもなくなりがちです。提出前に並びを整えておくと、あとのPDF結合で順番を間違えにくくなります。</p>
+<ol>
+<li>上の枠に画像を全部入れ、グリッド上でドラッグして、提出したい順に並べます。</li>
+<li>名前の付け方を決めます(例: <code>receipt_001.jpg</code>)。番号の桁数は、枚数に合わせて「001」か「0001」などにそろえます。</li>
+<li>ZIPで保存し、展開したファイルを<a href="/pdf-merge/">PDF結合ツール</a>に入れると、一覧の順にPDFの1ページずつになります。</li>
+</ol>
+<p>確定申告のe-Taxに領収書などを添付する場合は、イメージデータの形式が「PDFのみ」とされ、1送信あたり合計14.0MB・136ファイルまでです(国税庁 <a href="https://www.e-tax.nta.go.jp/imagedata/imagedata1.htm" rel="noopener">e-Tax「添付書類のイメージデータによる提出について」</a>、確認日 2026-11-07)。画像のままでは添付できないので、この順番整理のあとにPDFへまとめます。ファイル名の付け方そのものに公的な決まりがあるかは確認できていません。提出先がファイル名や枚数を指定している場合は、その案内に従ってください。</p>
+<p>ほかにも、印刷サービスにページ順どおりのファイル名で渡すとき、ばらばらの順の写真を撮影順に整えるときに使えます。このページは、各サービスの規則に合うことを保証するものではありません。</p>
+
+<h2>制限と注意</h2>
+<ul>
+<li>HEIC/HEIF(iPhoneの標準形式)の変換部品は入れていません。Safariなど、ブラウザ自身がHEICを表示できる環境では読み込める場合がありますが、動作は保証しません。読み込めなかった画像は上に一覧が出ます。iPhoneでは、設定の「カメラ」→「フォーマット」を「互換性優先」にして撮り直すか、写真アプリから共有するときに「すべての写真データ」をオフにしてJPEGとして渡す方法が使えます(項目名はiOSのバージョンで違うことがあります)。</li>
+<li>1枚あたり1億画素(約10,000×10,000)を超える画像は、メモリを使い切るおそれがあるため読み込みません。変換や縮小は、ブラウザの上限(特にスマホ)により大きな画像で失敗することがあり、その場合は画像名を表示して止まります。</li>
+<li>ZIPは約4GBまで、65,535ファイルまでです。それ以上は分けて処理してください。</li>
+<li>GIFを変換せずに保存すれば、アニメーションは保たれます。</li>
+<li>ファイル名に使えない文字(<code>/ \ : * ? " &lt; &gt; |</code>)は <code>_</code> に置き換えます。</li>
+</ul>
+
+<h2>よくある質問</h2>
+<details><summary>本当にアップロードされませんか。</summary>
+<p>されません。ネットワークを切っても動きます(上の説明を参照)。</p></details>
+<details><summary>200枚以上でも使えますか。</summary>
+<p>使えるように作っています。画像は1枚ずつ順に読み込み、進み具合を表示します。ただし端末のメモリ次第では時間がかかります。数百枚を超えるときは、いくつかに分けるほうが安全です。</p></details>
+<details><summary>連番の順番が思った通りになりません。</summary>
+<p>画面の並び順がそのまま番号の順になります。グリッド上の番号と新しい名前を見て、必要なら画像を動かしてください。名前順で「2」と「10」が入れ替わって見える場合は、「名前順(自然順)」ボタンを使うと数字の大きさで並びます。</p></details>
+
+<p class="hint">関連ツール: <a href="/image-compress-kb/">画像を指定KB以下に一括圧縮</a> / <a href="/image-convert/">WebP・AVIF・PNGをJPGに一括変換</a> / <a href="/image-resize/">画像サイズ変更と証明写真サイズ</a></p>
+<footer>
+<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告、アクセス解析、Cookieはありません。ZIPの書き出しは自前の実装で、外部ライブラリは使っていません。</p>
+<p><a href="/">ramda lab トップへ</a></p>
+</footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+var MAX_PIXELS = 100e6;       // 1枚あたりの上限
+var THUMB = 192;
+var EXT_OK = /\.(jpe?g|png|webp|gif|heic|heif)$/i;
+var items = [];               // {id,file,name,ext,mtime,exif,w,h,thumb}
+var nextId = 1, busy = false;
+var $ = function(id){return document.getElementById(id);};
+var collator = new Intl.Collator('ja', {numeric:true, sensitivity:'base'});
+
+function setStatus(t){ $('status').textContent = t; }
+function setProg(v,m){ var p=$('prog'); if(v==null){p.hidden=true;return;} p.hidden=false; p.max=m; p.value=v; }
+function showErrs(list){
+  var e=$('errs'); e.textContent='';
+  if(!list.length){e.hidden=true;return;}
+  e.hidden=false;
+  var p=document.createElement('strong'); p.textContent='次のファイルは処理できませんでした。'; e.appendChild(p);
+  var ul=document.createElement('ul');
+  list.forEach(function(s){var li=document.createElement('li');li.textContent=s;ul.appendChild(li);});
+  e.appendChild(ul);
+}
+function tick(){ return new Promise(function(r){setTimeout(r,0);}); }
+
+/* ---------- EXIF(JPEGのみ、最小限) ---------- */
+function parseExifDate(buf){
+  var v=new DataView(buf);
+  if(v.byteLength<4||v.getUint16(0)!==0xFFD8) return null;
+  var o=2;
+  while(o+4<=v.byteLength){
+    if(v.getUint8(o)!==0xFF) return null;
+    var m=v.getUint8(o+1), len=v.getUint16(o+2);
+    if(m===0xDA) return null;
+    if(m===0xE1 && o+10<=v.byteLength && v.getUint32(o+4)===0x45786966){ // "Exif"
+      return readTiff(v,o+10,Math.min(v.byteLength,o+2+len));
+    }
+    o+=2+len;
+  }
+  return null;
+}
+function readTiff(v,base,end){
+  try{
+    var le = v.getUint16(base)===0x4949;
+    var u16=function(p){return v.getUint16(p,le);}, u32=function(p){return v.getUint32(p,le);};
+    if(u16(base+2)!==42) return null;
+    function ifd(off){
+      var res={}, p=base+off, n=u16(p); p+=2;
+      for(var i=0;i<n&&p+12<=end;i++,p+=12){
+        var tag=u16(p), type=u16(p+2), cnt=u32(p+4);
+        if(tag===0x8769) res.exifPtr=u32(p+8);
+        else if((tag===0x9003||tag===0x0132)&&type===2&&cnt>=19){
+          var q = cnt>4 ? base+u32(p+8) : p+8, s='';
+          for(var k=0;k<19;k++) s+=String.fromCharCode(v.getUint8(q+k));
+          if(tag===0x9003) res.orig=s; else res.mod=s;
+        }
+      }
+      return res;
+    }
+    var a=ifd(u32(base+4)), s=a.orig, b;
+    if(!s && a.exifPtr){ b=ifd(a.exifPtr); s=b.orig; }
+    if(!s) s=a.mod;
+    var m=/^(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)$/.exec(s||'');
+    if(!m) return null;
+    var t=new Date(+m[1],+m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime();
+    return isNaN(t)?null:t;
+  }catch(e){return null;}
+}
+
+/* ---------- 読み込み ---------- */
+function loadImage(url){
+  return new Promise(function(res,rej){
+    var im=new Image(); im.onload=function(){res(im);}; im.onerror=function(){rej(new Error('decode'));}; im.src=url;
+  });
+}
+function canvasBlob(c,type,q){
+  return new Promise(function(res){ c.toBlob(res,type,q); });
+}
+async function readOne(file){
+  var ext=(/\.([^.]+)$/.exec(file.name)||[])[1]||'';
+  var url=URL.createObjectURL(file);
+  try{
+    var im=await loadImage(url);
+    var w=im.naturalWidth, h=im.naturalHeight;
+    if(!w||!h) throw new Error('サイズを取得できません');
+    if(w*h>MAX_PIXELS) throw new Error('画像が大きすぎます('+w+'×'+h+'、上限1億画素)');
+    var s=Math.min(1,THUMB/Math.max(w,h));
+    var c=document.createElement('canvas'); c.width=Math.max(1,Math.round(w*s)); c.height=Math.max(1,Math.round(h*s));
+    c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    var tb=await canvasBlob(c,'image/jpeg',0.7);
+    c.width=c.height=0;
+    var exif=null;
+    if(/^jpe?g$/i.test(ext)||file.type==='image/jpeg'){
+      try{ exif=parseExifDate(await file.slice(0,131072).arrayBuffer()); }catch(e){}
+    }
+    return {id:nextId++,file:file,name:file.name,ext:ext,mtime:file.lastModified||0,exif:exif,w:w,h:h,thumb:tb?URL.createObjectURL(tb):''};
+  } finally { URL.revokeObjectURL(url); }
+}
+async function addFiles(fileList){
+  if(busy) return;
+  var files=Array.prototype.filter.call(fileList,function(f){return EXT_OK.test(f.name)||/^image\//.test(f.type);});
+  var skipped=fileList.length-files.length, errs=[];
+  if(skipped) errs.push('画像ではないファイルを'+skipped+'件、無視しました。');
+  if(!files.length){showErrs(errs);return;}
+  busy=true; setBusy();
+  for(var i=0;i<files.length;i++){
+    setStatus('読み込み中 '+(i+1)+' / '+files.length+' : '+files[i].name);
+    setProg(i,files.length);
+    try{ items.push(await readOne(files[i])); }
+    catch(e){
+      var heic=/\.hei[cf]$/i.test(files[i].name);
+      errs.push(files[i].name+' : '+(heic?'このブラウザではHEICを読み込めません(下の「制限と注意」を参照)':(e.message==='decode'?'画像として読み込めませんでした':e.message)));
+    }
+    if(i%5===4){ render(); await tick(); }
+  }
+  setProg(null); busy=false; setBusy();
+  setStatus(items.length+'枚を読み込みました。');
+  showErrs(errs); render();
+}
+function setBusy(){
+  ['dl','pick'].forEach(function(id){$(id).disabled=busy;});
+}
+
+/* ---------- 名前 ---------- */
+function clean(s){ return s.replace(/[\\\/:*?"<>|\u0000-\u001f]/g,'_'); }
+function outExt(it){
+  var f=$('fmt').value;
+  if(f==='jpg') return 'jpg';
+  if(f==='png') return 'png';
+  if(f==='webp') return 'webp';
+  return it.ext||'bin';
+}
+function nameFor(it,idx){
+  var start=parseInt($('start').value,10); if(isNaN(start)||start<0) start=0;
+  var d=parseInt($('digits').value,10); if(isNaN(d)||d<1) d=1; if(d>8) d=8;
+  var pre=clean($('prefix').value), sep=clean($('sep').value), suf=clean($('suffix').value);
+  var num=String(start+idx); while(num.length<d) num='0'+num;
+  return (pre?pre+sep:'')+num+(suf?sep+suf:'')+'.'+outExt(it);
+}
+
+/* ---------- 描画 ---------- */
+function mk(tag,cls,text){var e=document.createElement(tag); if(cls)e.className=cls; if(text!=null)e.textContent=text; return e;}
+function render(){
+  var grid=$('grid'); grid.textContent='';
+  $('work').hidden = items.length===0;
+  $('count').textContent = items.length+'枚';
+  items.forEach(function(it,i){
+    var li=mk('li','item'); li.dataset.id=it.id;
+    if(it.thumb){var im=document.createElement('img'); im.src=it.thumb; im.alt=''; im.width=THUMB; im.height=THUMB; im.draggable=false; li.appendChild(im);}
+    else li.appendChild(mk('div','ph','…'));
+    li.appendChild(mk('div','no',(i+1)+' 番目'));
+    li.appendChild(mk('div','nn',nameFor(it,i)));
+    var on=mk('div','on','元: '+it.name); on.title=it.name; li.appendChild(on);
+    var ctl=mk('div','ctl');
+    var lab=' ('+it.name+')';
+    var g=mk('button','ghost drag','☰'); g.type='button'; g.setAttribute('aria-label','つかんでドラッグ'+lab); g.title='ドラッグで移動';
+    g.addEventListener('pointerdown',function(ev){startDrag(ev,it.id,li,g);});
+    var u=mk('button','ghost','←'); u.type='button'; u.setAttribute('aria-label','前へ'+lab); u.title='前へ'; u.disabled=i===0;
+    u.addEventListener('click',function(){move(it.id,-1);});
+    var d=mk('button','ghost','→'); d.type='button'; d.setAttribute('aria-label','後ろへ'+lab); d.title='後ろへ'; d.disabled=i===items.length-1;
+    d.addEventListener('click',function(){move(it.id,1);});
+    var x=mk('button','ghost','×'); x.type='button'; x.setAttribute('aria-label','リストから外す'+lab); x.title='外す';
+    x.addEventListener('click',function(){remove(it.id);});
+    ctl.appendChild(g);ctl.appendChild(u);ctl.appendChild(d);ctl.appendChild(x);
+    li.appendChild(ctl); grid.appendChild(li);
+  });
+  renderPreview();
+}
+function renderPreview(){
+  var lines=items.slice(0,4).map(function(it,i){return it.name+'  →  '+nameFor(it,i);});
+  if(items.length>4) lines.push('… 全'+items.length+'枚');
+  $('preview').textContent = lines.length?lines.join('\n'):'画像を追加すると、ここに新しい名前の例が出ます。';
+  var conv=$('fmt').value!=='keep';
+  $('edge').disabled=!conv;
+  $('qwrap').hidden=!(($('fmt').value==='jpg')||($('fmt').value==='webp'));
+  $('qv').textContent=$('quality').value;
+  Array.prototype.forEach.call($('grid').children,function(li,i){
+    var nn=li.querySelector('.nn'); if(nn&&items[i]) nn.textContent=nameFor(items[i],i);
+  });
+}
+function idx(id){for(var i=0;i<items.length;i++) if(items[i].id===id) return i; return -1;}
+function move(id,dir){
+  var i=idx(id), j=i+dir; if(j<0||j>=items.length) return;
+  var t=items[i]; items[i]=items[j]; items[j]=t; render();
+  var b=document.querySelector('li[data-id="'+id+'"] button[aria-label^="'+(dir<0?'前へ':'後ろへ')+'"]');
+  if(b&&!b.disabled) b.focus(); else { var any=document.querySelector('li[data-id="'+id+'"] button:not(:disabled)'); if(any) any.focus(); }
+  setStatus((j+1)+'番目に移動しました。');
+}
+function remove(id){
+  var i=idx(id); if(i<0) return;
+  if(items[i].thumb) URL.revokeObjectURL(items[i].thumb);
+  items.splice(i,1); render(); setStatus('1枚外しました。残り'+items.length+'枚。');
+}
+function clearAll(){
+  items.forEach(function(it){if(it.thumb)URL.revokeObjectURL(it.thumb);});
+  items=[]; showErrs([]); render(); setStatus('すべて外しました。');
+}
+
+/* ---------- ドラッグ ---------- */
+var drag=null;
+function startDrag(ev,id,li,handle){
+  if(ev.button!==undefined&&ev.button!==0) return;
+  ev.preventDefault();
+  drag={id:id,li:li,target:null,pid:ev.pointerId,handle:handle};
+  try{handle.setPointerCapture(ev.pointerId);}catch(e){}
+  li.classList.add('dragging');
+  handle.addEventListener('pointermove',onMove);
+  handle.addEventListener('pointerup',onUp);
+  handle.addEventListener('pointercancel',onCancel);
+}
+function onMove(ev){
+  if(!drag) return;
+  var el=document.elementFromPoint(ev.clientX,ev.clientY);
+  var t=el&&el.closest?el.closest('li.item'):null;
+  if(drag.target&&drag.target!==t) drag.target.classList.remove('target');
+  drag.target=(t&&t!==drag.li)?t:null;
+  if(drag.target) drag.target.classList.add('target');
+  if(ev.clientY<70) window.scrollBy(0,-18); else if(ev.clientY>window.innerHeight-70) window.scrollBy(0,18);
+}
+function endDrag(){
+  var h=drag.handle;
+  h.removeEventListener('pointermove',onMove); h.removeEventListener('pointerup',onUp); h.removeEventListener('pointercancel',onCancel);
+  try{h.releasePointerCapture(drag.pid);}catch(e){}
+  drag.li.classList.remove('dragging'); if(drag.target) drag.target.classList.remove('target');
+}
+function onUp(){
+  if(!drag) return;
+  var d=drag; endDrag(); drag=null;
+  if(d.target){
+    var from=idx(d.id), to=idx(+d.target.dataset.id);
+    if(from>=0&&to>=0){ var it=items.splice(from,1)[0]; items.splice(to,0,it); render(); setStatus((to+1)+'番目に移動しました。'); }
+  }
+}
+function onCancel(){ if(!drag) return; endDrag(); drag=null; }
+
+/* ---------- 並べ替えボタン ---------- */
+function sortBy(fn,msg){ items.sort(fn); render(); setStatus(msg); }
+$('s-name').onclick=function(){sortBy(function(a,b){return collator.compare(a.name,b.name);},'名前順(自然順)に並べました。');};
+$('s-mtime').onclick=function(){sortBy(function(a,b){return a.mtime-b.mtime||collator.compare(a.name,b.name);},'更新日時の古い順に並べました。');};
+$('s-exif').onclick=function(){
+  var n=items.filter(function(i){return i.exif!=null;}).length;
+  sortBy(function(a,b){var x=a.exif!=null?a.exif:a.mtime, y=b.exif!=null?b.exif:b.mtime; return x-y||collator.compare(a.name,b.name);},
+    '撮影日時の古い順に並べました。EXIFがあったのは'+n+'枚で、残り'+(items.length-n)+'枚は更新日時で代用しました。');
+};
+$('s-rev').onclick=function(){items.reverse(); render(); setStatus('逆順にしました。');};
+$('clear').onclick=clearAll;
+
+/* ---------- ZIP(保存のみ) ---------- */
+var CRC=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){var c=0xFFFFFFFF;for(var i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function dosTime(ms){
+  var d=new Date(ms||Date.now()); var y=d.getFullYear(); if(y<1980){y=1980;}
+  return {t:(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1), d:((y-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate()};
+}
+function buildZip(entries){ // entries: [{name, blob, mtime}]
+  var parts=[], central=[], offset=0, enc=new TextEncoder();
+  return (async function(){
+    for(var i=0;i<entries.length;i++){
+      var e=entries[i], nm=enc.encode(e.name), buf=new Uint8Array(await e.blob.arrayBuffer());
+      var crc=crc32(buf), tm=dosTime(e.mtime), size=buf.length;
+      var lh=new DataView(new ArrayBuffer(30));
+      lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+      lh.setUint16(10,tm.t,true); lh.setUint16(12,tm.d,true); lh.setUint32(14,crc,true);
+      lh.setUint32(18,size,true); lh.setUint32(22,size,true); lh.setUint16(26,nm.length,true); lh.setUint16(28,0,true);
+      parts.push(lh.buffer,nm,buf);
+      var ch=new DataView(new ArrayBuffer(46));
+      ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
+      ch.setUint16(12,tm.t,true); ch.setUint16(14,tm.d,true); ch.setUint32(16,crc,true);
+      ch.setUint32(20,size,true); ch.setUint32(24,size,true); ch.setUint16(28,nm.length,true);
+      ch.setUint32(42,offset,true);
+      central.push(ch.buffer,nm);
+      offset+=30+nm.length+size;
+      if(i%3===2) await tick();
+    }
+    var csize=0; central.forEach(function(p){csize+=p.byteLength;});
+    var end=new DataView(new ArrayBuffer(22));
+    end.setUint32(0,0x06054b50,true); end.setUint16(8,entries.length,true); end.setUint16(10,entries.length,true);
+    end.setUint32(12,csize,true); end.setUint32(16,offset,true);
+    return new Blob(parts.concat(central,[end.buffer]),{type:'application/zip'});
+  })();
+}
+
+/* ---------- 変換 ---------- */
+async function convert(it){
+  var f=$('fmt').value, mime={jpg:'image/jpeg',png:'image/png',webp:'image/webp'}[f];
+  var q=parseInt($('quality').value,10)/100, edge=parseInt($('edge').value,10)||0;
+  var url=URL.createObjectURL(it.file);
+  try{
+    var im=await loadImage(url), w=im.naturalWidth, h=im.naturalHeight;
+    if(edge>0&&Math.max(w,h)>edge){ var s=edge/Math.max(w,h); w=Math.max(1,Math.round(w*s)); h=Math.max(1,Math.round(h*s)); }
+    var c=document.createElement('canvas'); c.width=w; c.height=h;
+    var ctx=c.getContext('2d');
+    if(!ctx) throw new Error('キャンバスを作れません(画像が大きすぎる可能性)');
+    if(f==='jpg'){ ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h); }
+    ctx.drawImage(im,0,0,w,h);
+    var b=await canvasBlob(c,mime,q);
+    c.width=c.height=0;
+    if(!b) throw new Error('変換に失敗しました(画像が大きすぎる可能性。長辺を小さくしてください)');
+    if(b.type!==mime) throw new Error('このブラウザは'+f.toUpperCase()+'への変換に対応していません');
+    return b;
+  } finally { URL.revokeObjectURL(url); }
+}
+
+async function download(){
+  if(busy||!items.length) return;
+  busy=true; setBusy();
+  var conv=$('fmt').value!=='keep', entries=[], errs=[], total=0;
+  var snapshot=items.slice();
+  try{
+    for(var i=0;i<snapshot.length;i++){
+      var it=snapshot[i];
+      setStatus((conv?'変換中 ':'準備中 ')+(i+1)+' / '+snapshot.length+' : '+it.name);
+      setProg(i,snapshot.length);
+      var blob;
+      try{ blob = conv ? await convert(it) : it.file; }
+      catch(e){ errs.push(it.name+' : '+e.message); setStatus('中断しました。'); showErrs(errs); return; }
+      total+=blob.size;
+      if(total>3.9e9||snapshot.length>65535){ showErrs(['合計サイズまたは枚数がZIPの上限を超えます。分けて処理してください。']); setStatus('中断しました。'); return; }
+      entries.push({name:nameFor(it,i),blob:blob,mtime:it.mtime});
+      if(conv) await tick();
+    }
+    setStatus('ZIPを作成中…');
+    var zip=await buildZip(entries);
+    var url=URL.createObjectURL(zip), a=document.createElement('a');
+    a.href=url; a.download=(clean($('prefix').value)||'images')+'.zip'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},60000);
+    showErrs([]);
+    setStatus(entries.length+'枚をZIPにしました('+(zip.size/1048576).toFixed(1)+' MB)。ダウンロードを確認してください。');
+  } finally { setProg(null); busy=false; setBusy(); }
+}
+
+/* ---------- 入力イベント ---------- */
+$('pick').onclick=function(){$('file').click();};
+$('file').onchange=function(){ var l=Array.prototype.slice.call(this.files); this.value=''; addFiles(l); };
+var dz=$('drop');
+['dragenter','dragover'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.add('over');});});
+['dragleave','drop'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.remove('over');});});
+dz.addEventListener('drop',function(e){ if(e.dataTransfer&&e.dataTransfer.files.length) addFiles(Array.prototype.slice.call(e.dataTransfer.files)); });
+['prefix','start','digits','sep','suffix','fmt','quality','edge'].forEach(function(id){ $(id).addEventListener('input',renderPreview); $(id).addEventListener('change',renderPreview); });
+$('dl').onclick=download;
+render();
+})();
+</script>
+</body>
+</html>

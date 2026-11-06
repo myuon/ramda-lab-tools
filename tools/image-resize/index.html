@@ -1,0 +1,684 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>画像サイズ変更と証明写真サイズ(履歴書・マイナンバー・パスポート) | ブラウザだけで完結 | ramda lab</title>
+<meta name="description" content="画像のサイズ変更とトリミングが、アップロードなしでできます。履歴書30×40mm、マイナンバーカード・パスポート35×45mmの証明写真サイズ、Instagramのサイズに対応。複数枚の一括リサイズとZIP保存、L判への面付けも可能です。">
+<link rel="canonical" href="https://lab.ramda.io/image-resize/">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/style.css">
+<style>
+.drop{border:3px dashed var(--accent);background:var(--panel);padding:1.2rem 1rem;text-align:center;margin:1rem 0}
+.drop.over{background:var(--code)}
+.drop p{margin:.3rem 0}
+.row{display:flex;flex-wrap:wrap;gap:.6rem 1rem}
+.row > div{flex:1 1 9rem;min-width:8rem}
+.row input[type=number]{max-width:none}
+select{font:inherit;padding:.55rem .6rem;border:1px solid var(--muted);background:var(--bg);color:var(--ink);min-height:44px;width:100%}
+input[type=range]{width:100%;min-height:44px}
+input[type=color]{width:4rem;height:44px;padding:2px;border:1px solid var(--muted);background:var(--bg);display:block}
+.tabs{display:flex;gap:.4rem;margin:1.2rem 0 0;flex-wrap:wrap}
+.tabs button{background:transparent;color:var(--accent);flex:1 1 10rem}
+.tabs button[aria-selected=true]{background:var(--accent);color:var(--accent-ink)}
+.panel{border:2px solid var(--accent);background:var(--panel);padding:.8rem 1rem 1rem;margin:0 0 1rem}
+.panel fieldset{background:transparent}
+#view{display:block;width:100%;max-width:520px;margin:.6rem auto;touch-action:none;background:#777;cursor:grab;border:1px solid var(--line)}
+#view:active{cursor:grabbing}
+.nudge{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;max-width:520px;margin:.4rem auto}
+.nudge button{padding:.3rem .2rem}
+.list{list-style:none;margin:1rem 0;padding:0}
+.list li{background:var(--panel);border:1px solid var(--line);padding:.4rem .6rem;margin:.3rem 0;display:flex;flex-wrap:wrap;gap:.2rem .8rem;align-items:center}
+.list .fn{flex:1 1 12rem;font-size:.9rem;min-width:0}
+.list .st{font-size:.82rem;color:var(--muted)}
+.list .st.ng{color:var(--ng);font-weight:700}
+.list a.dlk{display:inline-flex;align-items:center;min-height:44px;font-size:.9rem}
+button.sm{min-height:44px;padding:.4rem .8rem}
+.status{min-height:1.5em;margin:.4rem 0}
+.errs{background:var(--warn-bg);border:2px solid var(--warn);padding:.6rem .9rem;margin:.8rem 0;font-size:.92rem}
+.errs ul{margin:.3rem 0;padding-left:1.2rem}
+progress{width:100%;height:1.2rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.privacy{border:2px solid var(--ok);background:var(--panel);padding:.7rem 1rem;margin:1rem 0}
+.outbox img{max-width:100%;height:auto;border:1px solid var(--line);background:#fff;display:block;margin:.5rem 0}
+.outbox a.dl{display:inline-flex;align-items:center;min-height:44px;font-weight:700}
+</style>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "画像サイズ変更と証明写真サイズ(履歴書・マイナンバー・パスポート)", "url": "https://lab.ramda.io/image-resize/", "description": "画像のサイズ変更とトリミングが、アップロードなしでできます。履歴書30×40mm、マイナンバーカード・パスポート35×45mmの証明写真サイズ、Instagramのサイズに対応。複数枚の一括リサイズとZIP保存、L判への面付けも可能です。", "applicationCategory": "MultimediaApplication", "operatingSystem": "Any (ブラウザ)", "browserRequirements": "JavaScript が必要", "inLanguage": "ja", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "JPY"}}</script>
+</head>
+<body>
+<a class="skip" href="#main">本文へ</a>
+<header class="site"><div class="wrap"><a class="brand" href="/">ramda lab</a></div></header>
+<main class="wrap" id="main">
+<h1>画像サイズ変更と証明写真サイズ(履歴書・マイナンバー・パスポート)</h1>
+<p class="lead">写真を好きなサイズに切り抜いて、そのピクセル数で書き出します。履歴書(30×40mm)、マイナンバーカードとパスポート(35×45mm)、Instagramのサイズをすぐ選べます。複数枚を同じサイズにそろえて、ZIPで保存することもできます。</p>
+
+<div class="privacy"><strong>このページのコードは、画像をどこにも送信しません。</strong> このページは、あなたのブラウザの中だけで動きます。画像のアップロード、解析ツール、Cookieはありません。確かめたい場合は、ページを開いたあとに機内モードにして、そのまま使ってみてください。</div>
+
+<div class="disclaimer">このページで作った画像が、各種申請で受理されることは保証しません。サイズや顔の大きさ、背景、撮影時期などの条件は、申請先の最新の案内で必ず確認してください。画面のガイド線は目安です。</div>
+
+<div class="status" id="status" role="status" aria-live="polite"></div>
+<div class="errs" id="errs" hidden role="alert"></div>
+
+<div class="tabs" role="tablist" aria-label="使い方の切り替え">
+  <button type="button" role="tab" id="tab-crop" aria-selected="true" aria-controls="p-crop">1枚を切り抜く</button>
+  <button type="button" role="tab" id="tab-batch" aria-selected="false" aria-controls="p-batch">まとめて変更</button>
+</div>
+
+<!-- ===== 1枚を切り抜く ===== -->
+<section class="panel" id="p-crop" role="tabpanel" aria-labelledby="tab-crop">
+<div class="drop" id="drop1">
+  <p><strong>ここに写真をドロップ</strong></p>
+  <p><button type="button" id="pick1">写真を選ぶ</button></p>
+  <input type="file" id="file1" accept="image/*,.webp,.avif,.png,.jpg,.jpeg,.gif,.bmp" hidden aria-label="写真を選ぶ">
+</div>
+
+<fieldset>
+  <legend>出力するサイズ</legend>
+  <label class="field" for="preset1">サイズの選択</label>
+  <select id="preset1"></select>
+  <div class="row" id="customwrap" hidden>
+    <div><label class="field" for="cw">幅(px)</label><input type="number" id="cw" value="800" min="1" max="8000" inputmode="numeric"></div>
+    <div><label class="field" for="chh">高さ(px)</label><input type="number" id="chh" value="600" min="1" max="8000" inputmode="numeric"></div>
+  </div>
+  <div id="dpiwrap1" hidden>
+    <label class="field" for="dpi1">解像度(mmの規格をピクセルにするときの基準)</label>
+    <select id="dpi1"><option value="300">300 dpi</option><option value="350">350 dpi</option></select>
+  </div>
+  <p class="hint" id="sizeinfo" aria-live="polite"></p>
+</fieldset>
+
+<div id="cropwork" hidden>
+<h2>切り抜く位置を決める</h2>
+<p class="hint">枠は固定です。写真を<strong>ドラッグ</strong>して動かし、<strong>ピンチ</strong>(2本指)またはスライダーで大きさを変えます。画像の外側は背景色で塗られます。</p>
+<canvas id="view" tabindex="0" role="img" aria-label="切り抜きの位置合わせ。矢印キーで移動、プラスとマイナスで拡大縮小できます。"></canvas>
+<div class="nudge" role="group" aria-label="位置を少し動かす">
+  <button type="button" class="ghost" data-nx="1" data-ny="0" aria-label="写真を右へ動かす">→ 右へ</button>
+  <button type="button" class="ghost" data-nx="-1" data-ny="0" aria-label="写真を左へ動かす">← 左へ</button>
+  <button type="button" class="ghost" data-nx="0" data-ny="1" aria-label="写真を下へ動かす">↓ 下へ</button>
+  <button type="button" class="ghost" data-nx="0" data-ny="-1" aria-label="写真を上へ動かす">↑ 上へ</button>
+</div>
+<label class="field" for="zoom">拡大率: <span id="zv">100</span>%</label>
+<input type="range" id="zoom" min="25" max="600" value="100" aria-describedby="zhint">
+<p class="hint" id="zhint">100%は、枠をちょうど埋める大きさです。</p>
+<div class="row">
+  <div><label class="field" for="bg1">背景色(画像が足りない部分)</label><input type="color" id="bg1" value="#ffffff"></div>
+  <div><label class="field" for="fmt1">出力形式</label><select id="fmt1"><option value="jpg">JPG</option><option value="png">PNG</option></select></div>
+</div>
+<div id="q1wrap"><label class="field" for="q1">JPGの画質: <span id="q1v">92</span></label><input type="range" id="q1" min="60" max="100" value="92"></div>
+<label class="opt"><input type="checkbox" id="guide" checked><span>ガイド線を表示する(書き出した画像には入りません)</span></label>
+<p class="hint" id="guidenote"></p>
+<div class="actions"><button type="button" id="make1">この位置で書き出す</button></div>
+
+<div class="outbox" id="out1" hidden>
+  <h2>書き出した画像</h2>
+  <p class="meta" id="outinfo"></p>
+  <img id="outimg" alt="書き出した画像のプレビュー" width="200">
+  <a class="dl" id="outdl" href="#" download="">画像を保存する</a>
+  <div id="sheetwrap" hidden>
+    <h3>L判(89×127mm)にまとめて並べる</h3>
+    <p class="hint">同じ写真を、L判の用紙1枚に入る数だけ並べます(300dpi、1051×1500px)。余白は2mmです。印刷は「等倍・拡大縮小なし」にしてください。</p>
+    <div class="actions"><button type="button" class="ghost" id="makesheet">L判の面付けを作る</button></div>
+    <p class="meta" id="sheetinfo"></p>
+    <img id="sheetimg" alt="L判に並べたプレビュー" width="200" hidden>
+    <a class="dl" id="sheetdl" href="#" download="" hidden>L判の画像を保存する</a>
+  </div>
+</div>
+</div>
+</section>
+
+<!-- ===== まとめてサイズ変更 ===== -->
+<section class="panel" id="p-batch" role="tabpanel" aria-labelledby="tab-batch" hidden>
+<div class="drop" id="drop2">
+  <p><strong>ここに画像をドロップ</strong></p>
+  <p><button type="button" id="pick2">画像を選ぶ</button></p>
+  <p class="hint">複数選択できます(1回300枚まで)。</p>
+  <input type="file" id="file2" accept="image/*,.webp,.avif,.png,.jpg,.jpeg,.gif,.bmp" multiple hidden aria-label="画像を選ぶ">
+</div>
+<progress id="prog" value="0" max="1" hidden aria-label="処理の進み具合"></progress>
+<div id="bwork" hidden>
+<h2>1. 画像</h2>
+<p class="meta" id="count"></p>
+<ul class="list" id="list" aria-label="画像の一覧"></ul>
+<div class="actions"><button type="button" class="ghost sm" id="clear">すべて外す</button></div>
+<h2>2. サイズと方法</h2>
+<fieldset>
+  <legend>出力の設定</legend>
+  <label class="field" for="preset2">サイズの例から選ぶ</label>
+  <select id="preset2"></select>
+  <div class="row">
+    <div><label class="field" for="bw">幅(px)</label><input type="number" id="bw" value="1080" min="1" max="16000" inputmode="numeric"></div>
+    <div><label class="field" for="bh">高さ(px)</label><input type="number" id="bh" value="1080" min="1" max="16000" inputmode="numeric"></div>
+  </div>
+  <label class="field" for="mode">はみ出し・余りの扱い</label>
+  <select id="mode">
+    <option value="fill">切り抜き: 指定サイズぴったり。はみ出す部分は中央を残して切る</option>
+    <option value="pad">余白: 指定サイズぴったり。余る部分は背景色で埋める</option>
+    <option value="fit">収める: 比率を保って枠に収める(サイズはぴったりにならないことがある)</option>
+  </select>
+  <div class="row">
+    <div><label class="field" for="fmt2">出力形式</label><select id="fmt2"><option value="jpg">JPG</option><option value="png">PNG</option><option value="webp">WebP</option></select></div>
+    <div><label class="field" for="dpi2">dpi情報の書き込み(JPG・PNG)</label><select id="dpi2"><option value="0">書かない</option><option value="72">72 dpi</option><option value="300">300 dpi</option><option value="350">350 dpi</option></select></div>
+  </div>
+  <div id="q2wrap"><label class="field" for="q2">画質: <span id="q2v">88</span></label><input type="range" id="q2" min="40" max="100" value="88"></div>
+  <div><label class="field" for="bg2">背景色(余白・透明部分)</label><input type="color" id="bg2" value="#ffffff"></div>
+  <p class="hint">元より大きいサイズを指定すると拡大します(画質は上がりません)。メタデータ(撮影日時や位置情報)はすべて消えます。GIFは最初の1コマだけです。</p>
+</fieldset>
+<div class="actions"><button type="button" id="go">変換する</button><button type="button" class="ghost" id="cancel" hidden>中止する</button></div>
+<section id="res" hidden aria-label="変換結果">
+<h2>3. ダウンロード</h2>
+<div class="actions"><button type="button" id="dlzip">ZIPでまとめてダウンロード</button></div>
+<p class="hint">ZIPは圧縮なし(保存のみ)です。1枚ずつなら、一覧の「保存」から取れます。</p>
+</section>
+</div>
+</section>
+
+<h2>証明写真のサイズ一覧と出典</h2>
+<p>上の選択肢に入れたサイズは、次の公的な案内などで確認したものだけです。確認日は 2026-11-06 です。mmの規格は、選んだdpiでピクセルにして書き出します(300dpiなら35×45mmは413×531px)。</p>
+<table>
+<thead><tr><th>用途</th><th>サイズと規定</th><th>出典</th><th>確認日</th></tr></thead>
+<tbody>
+<tr><td>履歴書</td><td>写真の欄は縦36〜40mm、横24〜30mmの範囲。このページは上限の<strong>縦40×横30mm</strong>。本人単身で胸から上</td><td><a href="https://www.mhlw.go.jp/content/11601000/000769679.pdf" rel="noopener">厚生労働省「履歴書の様式例の作成について」</a>。検索結果の要約で確認</td><td>2026-11-06</td></tr>
+<tr><td>マイナンバーカード</td><td><strong>縦45×横35mm</strong>。顔の縦は34±2mm、上端から頭頂まで4±2mm、左右端から顔の中心まで17±2mm。無背景、6か月以内に撮影、正面・無帽</td><td><a href="https://www.kojinbango-card.go.jp/kofushinse/photo/" rel="noopener">個人番号カード総合サイト(J-LIS)</a></td><td>2026-11-06</td></tr>
+<tr><td>マイナンバーカード(オンライン申請のアップロード)</td><td>紙の寸法ではなく、<strong>ファイル形式jpeg、RGBカラー、20KB〜7MB、幅480〜6000px・高さ480〜6000px</strong>と案内されている</td><td><a href="https://www.kojinbango-card.go.jp/apprec/apply/facephoto/" rel="noopener">個人番号カード総合サイト「顔写真のチェックポイント」</a></td><td>2026-11-07</td></tr>
+<tr><td>パスポート</td><td><strong>縦45×横35mm</strong>、縁なし。顔(頭頂からあご)32〜36mm、上の余白2〜6mm、左右の余白2mm以上。背景や影がないこと</td><td><a href="https://www.pref.saitama.lg.jp/passport/shutoku/shashin.html" rel="noopener">埼玉県パスポートセンター</a>(顔の寸法は<a href="https://www.seikatubunka.metro.tokyo.lg.jp/passport/documents/0000000418" rel="noopener">東京都</a>も同じ)。外務省の規格ページは取得できず未確認</td><td>2026-11-06</td></tr>
+<tr><td>Instagram(フィード)</td><td>幅は1080pxまで。縦横比が1.91:1〜4:5なら元の解像度のまま。正方形1080×1080、縦長1080×1350(4:5)、横長1080×566(1.91:1)を用意。版により下限が3:4と書かれたものもあり、狭いほうの4:5を採用</td><td><a href="https://help.instagram.com/1631821640426723" rel="noopener">Instagramヘルプ「写真の解像度」</a>。検索結果の要約で確認</td><td>2026-11-06</td></tr>
+</tbody>
+</table>
+<p class="hint">ここにないサイズ(運転免許、日本の各サービスのアイコンなど)は、一次情報で確認できていないため入れていません。「自分で指定」でピクセル数を入れてください。</p>
+
+<h2>証明写真のサイズで切り抜くには</h2>
+<p>「1枚を切り抜く」で写真を選び、サイズの選択で「マイナンバーカード」「パスポート」「履歴書」を選びます。枠に顔が収まるように写真をドラッグし、拡大率を合わせて「書き出す」を押します。マイナンバーとパスポートでは、頭頂とあごの目安線が出ます。目安線は規格の中央値(顔の縦34mm、頭上4mm)で引いています。規格には幅があり、背景や表情などの条件もあるため、受理されるかは申請先の基準によります。</p>
+<p>L判の用紙に印刷して切り分ける場合は、書き出したあとに「L判の面付けを作る」を使います。35×45mmなら2×2の4枚、30×40mmなら横置きで4×2の8枚が入ります。</p>
+
+<h2>オンライン申請でアップロードする場合は、mmではなくピクセルを見る</h2>
+<p>上の表のとおり、マイナンバーカードのオンライン申請では、写真の幅・高さの両方が480ピクセル以上とされています。一方、このページで35×45mmを300dpiで書き出すと413×531pxで、幅が480pxに届きません。オンライン申請用に作るなら、書き出しのdpiを上げます。350dpiなら482×620px、600dpiなら827×1063pxです(35mm÷25.4×dpi、45mm÷25.4×dpiで計算した値)。350dpiの幅482pxは下限に近いので、余裕を見て600dpiにするほうが安全です。</p>
+<p>ただし、元の写真の画素が足りないと、拡大した分は粗くなります。書き出したあとに、ファイルサイズが20KB以上7MB以下に入っているかも確かめてください。大きすぎるときは<a href="/image-compress-kb/">指定KB以下に圧縮するページ</a>で小さくできますが、小さくしすぎて20KBを下回らないように注意してください。条件は改正されることがあるため、提出前に最新の案内を確認してください。</p>
+
+<h2>画像サイズ変更(リサイズ)をまとめてしたい</h2>
+<p>「まとめてサイズ変更」で、幅と高さを指定して複数の画像を一度に変換できます。「切り抜き」は中央を残して指定サイズにぴったり合わせ、「余白」は全体を残して余りを背景色で埋め、「収める」は比率を保って枠に収めます。結果はZIPで保存できます。</p>
+
+<p class="hint">関連ツール: <a href="/image-compress-kb/">画像を指定KB以下に一括圧縮</a> / <a href="/image-convert/">WebP・AVIF・PNGをJPGに一括変換</a> / <a href="/image-renamer/">画像の連番リネームとZIP保存</a></p>
+
+<h2>制限と注意</h2>
+<ul>
+<li>HEIC/HEIF(iPhoneの標準形式)は読み込めません。先に<a href="/image-convert/">HEIC・WebP・AVIFをJPGに一括変換</a>でJPGにしてください。iPhoneの「設定」→「カメラ」→「フォーマット」を「互換性優先」にするとJPEGで保存されます。</li>
+<li>書き出す画像のメタデータ(撮影日時、位置情報など)は消えます。dpiの値だけをJPG・PNGに書き込めます。WebPには書き込めません。</li>
+<li>顔の位置の目安線は、ブラウザで顔を検出しているわけではありません。位置は自分で合わせます。</li>
+<li>1枚あたり1億画素を超える画像と、一度に300枚を超える枚数は扱いません。ZIPは約4GBまでです。</li>
+<li>印刷の色や大きさは、プリンターやコンビニの設定でずれることがあります。</li>
+</ul>
+
+<h2>よくある質問</h2>
+<details><summary>写真はどこかに送信されますか。</summary>
+<p>されません。切り抜きもZIP作成も、このページ内のコードがあなたのブラウザの中で行います。ページを開いたあとにネットワークを切っても動きます。</p></details>
+<details><summary>このサイズで申請が通りますか。</summary>
+<p>保証はできません。サイズ以外にも、顔の大きさ、背景、影、撮影時期、印刷用紙などの条件があります。申請先の最新の案内で確認してください。オンライン申請では、ファイルの形式や容量の条件が別にある場合もあります。</p></details>
+<details><summary>ピクセル数はどう決まりますか。</summary>
+<p>mmで決まる規格は、選んだdpiでピクセルにします。300dpiの35×45mmは413×531px、350dpiでは482×620pxです。書き出すJPG・PNGにはそのdpiも書き込みます。</p></details>
+<details><summary>元の写真が小さいときはどうなりますか。</summary>
+<p>拡大すると画質は粗くなります。拡大率を下げて写真が枠より小さくなると、足りない部分は背景色で塗られます。できるだけ大きな元写真を使ってください。</p></details>
+
+<footer>
+<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告、アクセス解析、Cookieはありません。ZIPの書き出しは自前の実装で、外部ライブラリは使っていません。</p>
+<p><a href="/">ramda lab トップへ</a></p>
+</footer>
+</main>
+
+<script>
+(function(){
+'use strict';
+var $ = function(id){return document.getElementById(id);};
+var MAX_PIXELS = 100e6, MAX_FILES = 300;
+var MIME = {jpg:'image/jpeg', png:'image/png', webp:'image/webp'};
+var PRESETS = [
+  {id:'resume', label:'履歴書 30×40mm', mm:[30,40], g:null},
+  {id:'mynumber', label:'マイナンバーカード 35×45mm', mm:[35,45], g:{top:4,face:34}},
+  {id:'passport', label:'パスポート 35×45mm', mm:[35,45], g:{top:4,face:34}},
+  {id:'ig-sq', label:'Instagram 正方形 1080×1080px', px:[1080,1080]},
+  {id:'ig-port', label:'Instagram 縦長(4:5) 1080×1350px', px:[1080,1350]},
+  {id:'ig-land', label:'Instagram 横長(1.91:1) 1080×566px', px:[1080,566]}
+];
+function mk(tag,cls,text){var e=document.createElement(tag); if(cls)e.className=cls; if(text!=null)e.textContent=text; return e;}
+function setStatus(t){ $('status').textContent=t; }
+function tick(){ return new Promise(function(r){setTimeout(r,0);}); }
+function canvasBlob(c,type,q){ return new Promise(function(res){ try{ c.toBlob(res,type,q); }catch(e){ res(null); } }); }
+function showErrs(list){
+  var e=$('errs'); e.textContent='';
+  if(!list.length){e.hidden=true;return;}
+  e.hidden=false; e.appendChild(mk('strong',null,'次の問題がありました。'));
+  var ul=mk('ul'); list.forEach(function(s){ul.appendChild(mk('li',null,s));}); e.appendChild(ul);
+}
+function clean(s){ return s.replace(/[\\\/:*?"<>|\u0000-\u001f]/g,'_'); }
+function baseName(n){ return n.replace(/\.[^.\/\\]+$/,''); }
+function mmpx(mm,dpi){ return Math.max(1,Math.round(mm/25.4*dpi)); }
+function dimsOf(p,dpi){ return p.mm ? [mmpx(p.mm[0],dpi),mmpx(p.mm[1],dpi)] : p.px.slice(); }
+
+/* ---------- 読み込み ---------- */
+async function decode(file){
+  var url=URL.createObjectURL(file);
+  try{
+    var im=await new Promise(function(res,rej){var i=new Image(); i.onload=function(){res(i);}; i.onerror=function(){rej(new Error('decode'));}; i.src=url;});
+    if(im.decode){ try{ await im.decode(); }catch(e){} }
+    var w=im.naturalWidth,h=im.naturalHeight;
+    if(!w||!h) throw new Error('サイズを取得できません');
+    if(w*h>MAX_PIXELS) throw new Error('画像が大きすぎます('+w+'×'+h+'、上限1億画素)');
+    return {im:im,w:w,h:h};
+  } catch(e){
+    if(e.message==='decode'){
+      if(window.createImageBitmap){ try{ var bm=await createImageBitmap(file); return {im:bm,w:bm.width,h:bm.height}; }catch(e2){} }
+      throw new Error('このブラウザでは画像として読み込めませんでした');
+    }
+    throw e;
+  } finally { setTimeout(function(){URL.revokeObjectURL(url);},0); }
+}
+function isHeic(f){ return /\.hei[cf]$/i.test(f.name)||/^image\/hei[cf]/.test(f.type); }
+function isImg(f){ return /^image\//.test(f.type)||/\.(webp|avif|png|jpe?g|gif|bmp)$/i.test(f.name); }
+
+/* ---------- 縮小描画(大きく縮めるときは半分ずつ縮めて粗れを減らす) ---------- */
+function drawScaled(ctx,img,iw,ih,dx,dy,dw,dh){
+  var src=img, cw=iw, ch=ih, rel=dw/iw;
+  while(rel<0.5 && cw>2 && ch>2){
+    var nw=Math.max(1,Math.ceil(cw/2)), nh=Math.max(1,Math.ceil(ch/2));
+    var c=document.createElement('canvas'); c.width=nw; c.height=nh;
+    var cx=c.getContext('2d'); cx.imageSmoothingQuality='high'; cx.drawImage(src,0,0,nw,nh);
+    src=c; cw=nw; ch=nh; rel=dw/cw;
+  }
+  ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.drawImage(src,dx,dy,dw,dh);
+}
+
+/* ---------- dpi の書き込み ---------- */
+var CRC=(function(){var t=new Uint32Array(256);for(var n=0;n<256;n++){var c=n;for(var k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;})();
+function crc32(u8){var c=0xFFFFFFFF;for(var i=0;i<u8.length;i++)c=CRC[(c^u8[i])&255]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+async function withDpi(blob,dpi){
+  if(!dpi) return blob;
+  var buf=new Uint8Array(await blob.arrayBuffer());
+  if(blob.type==='image/jpeg'){
+    var jfif=buf[2]===0xFF&&buf[3]===0xE0&&buf[6]===0x4A&&buf[7]===0x46&&buf[8]===0x49&&buf[9]===0x46;
+    if(jfif){
+      buf[13]=1; buf[14]=dpi>>8; buf[15]=dpi&255; buf[16]=dpi>>8; buf[17]=dpi&255;
+      return new Blob([buf],{type:'image/jpeg'});
+    }
+    var app=new Uint8Array([0xFF,0xE0,0,16,0x4A,0x46,0x49,0x46,0,1,1,1,dpi>>8,dpi&255,dpi>>8,dpi&255,0,0]);
+    var out=new Uint8Array(buf.length+18); out.set(buf.subarray(0,2),0); out.set(app,2); out.set(buf.subarray(2),20);
+    return new Blob([out],{type:'image/jpeg'});
+  }
+  if(blob.type==='image/png'){
+    var ppm=Math.round(dpi/0.0254), ch=new Uint8Array(21), dv=new DataView(ch.buffer);
+    dv.setUint32(0,9); ch.set([0x70,0x48,0x59,0x73],4); dv.setUint32(8,ppm); dv.setUint32(12,ppm); ch[16]=1;
+    dv.setUint32(17,crc32(ch.subarray(4,17)));
+    var pos=33, o2=new Uint8Array(buf.length+21);
+    o2.set(buf.subarray(0,pos),0); o2.set(ch,pos); o2.set(buf.subarray(pos),pos+21);
+    return new Blob([o2],{type:'image/png'});
+  }
+  return blob;
+}
+
+/* ---------- タブ ---------- */
+function showTab(which){
+  var crop=which==='crop';
+  $('tab-crop').setAttribute('aria-selected',crop); $('tab-batch').setAttribute('aria-selected',!crop);
+  $('p-crop').hidden=!crop; $('p-batch').hidden=crop;
+  if(crop) layoutView();
+}
+$('tab-crop').onclick=function(){showTab('crop');};
+$('tab-batch').onclick=function(){showTab('batch');};
+
+/* ---------- プリセットの選択肢 ---------- */
+function fillPresets(sel,withCustom){
+  var g1=document.createElement('optgroup'); g1.label='証明写真(mm規格)';
+  var g2=document.createElement('optgroup'); g2.label='Instagram';
+  PRESETS.forEach(function(p){ var o=mk('option',null,p.label); o.value=p.id; (p.mm?g1:g2).appendChild(o); });
+  sel.appendChild(g1); sel.appendChild(g2);
+  if(withCustom){ var o=mk('option',null,'自分で指定(ピクセル)'); o.value='custom'; sel.appendChild(o); }
+}
+function presetById(id){ return PRESETS.filter(function(p){return p.id===id;})[0]||null; }
+
+/* =========================================================
+   1枚を切り抜く
+   ========================================================= */
+var S={img:null,iw:0,ih:0,name:'',cx:0,cy:0,k:1,vw:0,vh:0,bx:0,by:0,bw:0,bh:0,ow:0,oh:0,outCanvas:null,urls:[]};
+var view=$('view'), vctx=view.getContext('2d'), dprv=1;
+fillPresets($('preset1'),true);
+$('preset1').value='mynumber';
+
+function curPreset1(){ return presetById($('preset1').value); }
+function curDpi1(){ var p=curPreset1(); return (p&&p.mm)?parseInt($('dpi1').value,10):0; }
+function outSize1(){
+  var p=curPreset1();
+  if(!p){ return [Math.max(1,Math.min(8000,parseInt($('cw').value,10)||1)),Math.max(1,Math.min(8000,parseInt($('chh').value,10)||1))]; }
+  return dimsOf(p,parseInt($('dpi1').value,10));
+}
+function zc(){ return Math.max(S.bw/S.iw,S.bh/S.ih); }
+function z(){ return zc()*S.k; }
+
+function layoutView(){
+  if(!S.img||$('p-crop').hidden) return;
+  var os=outSize1(); S.ow=os[0]; S.oh=os[1];
+  var cssW=Math.min(520,Math.max(240,$('p-crop').clientWidth-32));
+  var cssH=Math.round(Math.min(cssW*0.9,Math.max(300,cssW*0.85)));
+  dprv=Math.min(2,window.devicePixelRatio||1);
+  view.style.width=cssW+'px'; view.style.height=cssH+'px';
+  view.width=Math.round(cssW*dprv); view.height=Math.round(cssH*dprv);
+  S.vw=cssW; S.vh=cssH;
+  var a=S.ow/S.oh, maxW=cssW-24, maxH=cssH-24;
+  S.bw=Math.min(maxW,maxH*a); S.bh=S.bw/a;
+  S.bx=(cssW-S.bw)/2; S.by=(cssH-S.bh)/2;
+  draw();
+}
+function clampPos(){
+  S.cx=Math.max(0,Math.min(S.iw,S.cx)); S.cy=Math.max(0,Math.min(S.ih,S.cy));
+  S.k=Math.max(0.25,Math.min(6,S.k));
+}
+function syncZoom(){ $('zoom').value=Math.round(S.k*100); $('zv').textContent=Math.round(S.k*100); }
+function draw(){
+  if(!S.img) return;
+  var c=vctx; c.setTransform(dprv,0,0,dprv,0,0);
+  c.fillStyle='#777'; c.fillRect(0,0,S.vw,S.vh);
+  c.fillStyle=$('bg1').value; c.fillRect(S.bx,S.by,S.bw,S.bh);
+  var zz=z(), mx=S.vw/2, my=S.vh/2;
+  var dx=mx-S.cx*zz, dy=my-S.cy*zz;
+  c.imageSmoothingQuality='high';
+  c.drawImage(S.img,dx,dy,S.iw*zz,S.ih*zz);
+  c.fillStyle='rgba(0,0,0,.55)';
+  c.fillRect(0,0,S.vw,S.by); c.fillRect(0,S.by+S.bh,S.vw,S.vh-S.by-S.bh);
+  c.fillRect(0,S.by,S.bx,S.bh); c.fillRect(S.bx+S.bw,S.by,S.vw-S.bx-S.bw,S.bh);
+  c.lineWidth=3; c.strokeStyle='#000'; c.strokeRect(S.bx,S.by,S.bw,S.bh);
+  c.lineWidth=1.5; c.strokeStyle='#fff'; c.strokeRect(S.bx,S.by,S.bw,S.bh);
+  if($('guide').checked){
+    var p=curPreset1();
+    c.save(); c.beginPath(); c.rect(S.bx,S.by,S.bw,S.bh); c.clip();
+    c.lineWidth=1; c.strokeStyle='rgba(255,255,255,.55)';
+    c.beginPath(); c.moveTo(S.bx+S.bw/2,S.by); c.lineTo(S.bx+S.bw/2,S.by+S.bh); c.stroke();
+    if(p&&p.g&&p.mm){
+      var H=p.mm[1], y1=S.by+S.bh*p.g.top/H, y2=S.by+S.bh*(p.g.top+p.g.face)/H;
+      c.setLineDash([6,4]); c.lineWidth=2; c.strokeStyle='#ffd400';
+      c.beginPath(); c.moveTo(S.bx,y1); c.lineTo(S.bx+S.bw,y1); c.moveTo(S.bx,y2); c.lineTo(S.bx+S.bw,y2); c.stroke();
+      c.setLineDash([]); c.fillStyle='#ffd400'; c.font='12px sans-serif';
+      c.fillText('頭頂',S.bx+4,y1-4); c.fillText('あご',S.bx+4,y2+13);
+    } else {
+      c.beginPath(); c.moveTo(S.bx,S.by+S.bh/3); c.lineTo(S.bx+S.bw,S.by+S.bh/3); c.moveTo(S.bx,S.by+S.bh*2/3); c.lineTo(S.bx+S.bw,S.by+S.bh*2/3); c.stroke();
+    }
+    c.restore();
+  }
+}
+function updateSizeInfo(){
+  var p=curPreset1(), os=outSize1(), dpi=curDpi1();
+  $('customwrap').hidden=!!p; $('dpiwrap1').hidden=!(p&&p.mm);
+  var t='書き出すサイズ: '+os[0]+' × '+os[1]+' px';
+  if(p&&p.mm) t+='('+p.mm[0]+'×'+p.mm[1]+'mm を '+dpi+'dpi で換算)';
+  $('sizeinfo').textContent=t;
+  $('sheetwrap').hidden=!(p&&p.mm);
+  $('guidenote').textContent=(p&&p.g)?'黄色の点線は、規格の中央値(上の余白4mm、顔の縦34mm)の目安です。規格には幅があります。':'';
+  layoutView();
+}
+function loadFile1(file){
+  var errs=[];
+  if(isHeic(file)){ showErrs(['HEIC/HEIFは読み込めません。iPhoneの「設定」→「カメラ」→「フォーマット」を「互換性優先」にするとJPEGで保存されます。']); return; }
+  if(!isImg(file)){ showErrs(['画像ファイルではありません。']); return; }
+  showErrs([]);
+  decode(file).then(function(d){
+    S.img=d.im; S.iw=d.w; S.ih=d.h; S.name=file.name; S.cx=d.w/2; S.cy=d.h/2; S.k=1;
+    $('cropwork').hidden=false; $('out1').hidden=true;
+    updateSizeInfo(); syncZoom();
+    setStatus('読み込みました('+d.w+'×'+d.h+' px)。写真を動かして位置を合わせてください。');
+  }).catch(function(e){ showErrs([file.name+' : '+(e.message==='decode'?'画像として読み込めませんでした':e.message)]); });
+}
+/* ポインター操作(1本指でドラッグ、2本指でピンチ) */
+var ptrs={}, lastDist=0, lastMid=null;
+function ptrList(){ return Object.keys(ptrs).map(function(k){return ptrs[k];}); }
+view.addEventListener('pointerdown',function(e){
+  try{view.setPointerCapture(e.pointerId);}catch(x){} ptrs[e.pointerId]={x:e.clientX,y:e.clientY};
+  var l=ptrList(); if(l.length===2){ lastDist=Math.hypot(l[0].x-l[1].x,l[0].y-l[1].y); }
+});
+view.addEventListener('pointermove',function(e){
+  var p=ptrs[e.pointerId]; if(!p||!S.img) return;
+  var l=ptrList();
+  if(l.length===1){
+    S.cx-=(e.clientX-p.x)/z(); S.cy-=(e.clientY-p.y)/z();
+  } else if(l.length>=2){
+    var old=[l[0].x,l[0].y,l[1].x,l[1].y];
+    p.x=e.clientX; p.y=e.clientY;
+    var l2=ptrList(), d=Math.hypot(l2[0].x-l2[1].x,l2[0].y-l2[1].y);
+    if(lastDist>0&&d>0){ S.k*=d/lastDist; }
+    lastDist=d;
+    var omx=(old[0]+old[2])/2, omy=(old[1]+old[3])/2, nmx=(l2[0].x+l2[1].x)/2, nmy=(l2[0].y+l2[1].y)/2;
+    S.cx-=(nmx-omx)/z(); S.cy-=(nmy-omy)/z();
+  }
+  p.x=e.clientX; p.y=e.clientY;
+  clampPos(); syncZoom(); draw(); e.preventDefault();
+});
+function endPtr(e){ delete ptrs[e.pointerId]; lastDist=0; var l=ptrList(); if(l.length===2) lastDist=Math.hypot(l[0].x-l[1].x,l[0].y-l[1].y); }
+view.addEventListener('pointerup',endPtr); view.addEventListener('pointercancel',endPtr);
+view.addEventListener('wheel',function(e){ if(!S.img) return; e.preventDefault(); S.k*=Math.exp(-e.deltaY*0.0015); clampPos(); syncZoom(); draw(); },{passive:false});
+function nudge(nx,ny){ var step=Math.max(1,S.bw*0.02)/z(); S.cx-=nx*step; S.cy-=ny*step; clampPos(); draw(); }
+view.addEventListener('keydown',function(e){
+  var m={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+  if(m[e.key]){ nudge(-m[e.key][0],-m[e.key][1]); e.preventDefault(); }
+  else if(e.key==='+'||e.key==='='){ S.k*=1.05; clampPos(); syncZoom(); draw(); e.preventDefault(); }
+  else if(e.key==='-'){ S.k/=1.05; clampPos(); syncZoom(); draw(); e.preventDefault(); }
+});
+Array.prototype.forEach.call(document.querySelectorAll('.nudge button'),function(b){
+  b.addEventListener('click',function(){ nudge(parseInt(b.dataset.nx,10),parseInt(b.dataset.ny,10)); });
+});
+$('zoom').addEventListener('input',function(){ S.k=parseInt(this.value,10)/100; clampPos(); $('zv').textContent=Math.round(S.k*100); draw(); });
+['bg1','guide'].forEach(function(id){ $(id).addEventListener('input',draw); });
+['preset1','dpi1','cw','chh'].forEach(function(id){ $(id).addEventListener('input',function(){ $('out1').hidden=true; updateSizeInfo(); }); });
+$('fmt1').addEventListener('input',function(){ $('q1wrap').hidden=($('fmt1').value==='png'); });
+$('q1').addEventListener('input',function(){ $('q1v').textContent=this.value; });
+window.addEventListener('resize',layoutView);
+
+async function make1(){
+  if(!S.img) return;
+  var ow=S.ow, oh=S.oh, f=ow/S.bw, zz=z()*f;
+  var c=document.createElement('canvas'); c.width=ow; c.height=oh;
+  var ctx=c.getContext('2d'); if(!ctx){ showErrs(['キャンバスを作れません。サイズを小さくしてください。']); return; }
+  ctx.fillStyle=$('bg1').value; ctx.fillRect(0,0,ow,oh);
+  drawScaled(ctx,S.img,S.iw,S.ih,ow/2-S.cx*zz,oh/2-S.cy*zz,S.iw*zz,S.ih*zz);
+  var fmt=$('fmt1').value, mime=MIME[fmt], dpi=curDpi1();
+  var b=await canvasBlob(c,mime,fmt==='png'?undefined:parseInt($('q1').value,10)/100);
+  if(!b||b.type!==mime){ showErrs(['書き出しに失敗しました。']); return; }
+  b=await withDpi(b,dpi);
+  S.outCanvas=c;
+  S.urls.forEach(function(u){URL.revokeObjectURL(u);}); S.urls=[];
+  var url=URL.createObjectURL(b); S.urls.push(url);
+  var p=curPreset1(), nm=(p?p.id:'custom')+'-'+ow+'x'+oh+(dpi?'-'+dpi+'dpi':'')+'.'+fmt;
+  $('outimg').src=url; $('outimg').width=Math.min(220,ow);
+  $('outdl').href=url; $('outdl').setAttribute('download',nm); $('outdl').textContent='画像を保存する('+nm+')';
+  $('outinfo').textContent='出力: '+ow+' × '+oh+' px / '+(dpi?dpi+' dpi を書き込み':'dpiなし')+' / '+(b.size/1024).toFixed(0)+' KB';
+  $('out1').hidden=false; $('sheetimg').hidden=true; $('sheetdl').hidden=true; $('sheetinfo').textContent='';
+  setStatus('書き出しました。');
+}
+$('make1').onclick=make1;
+
+/* L判(89×127mm, 300dpi)への面付け */
+async function makeSheet(){
+  var p=curPreset1(); if(!p||!p.mm||!S.outCanvas) return;
+  var W=1051, H=1500, g=mmpx(2,300), pw=mmpx(p.mm[0],300), ph=mmpx(p.mm[1],300);
+  function fit(w,h){ return {c:Math.floor((w+g)/(pw+g)),r:Math.floor((h+g)/(ph+g))}; }
+  var A=fit(W,H), B=fit(H,W), land=(B.c*B.r>A.c*A.r), SW=land?H:W, SH=land?W:H, n=land?B:A;
+  if(n.c*n.r<1){ showErrs(['この写真サイズはL判に入りません。']); return; }
+  var c=document.createElement('canvas'); c.width=SW; c.height=SH;
+  var ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,SW,SH);
+  var tw=n.c*pw+(n.c-1)*g, th=n.r*ph+(n.r-1)*g, ox=Math.round((SW-tw)/2), oy=Math.round((SH-th)/2);
+  for(var r=0;r<n.r;r++) for(var q=0;q<n.c;q++){
+    ctx.imageSmoothingQuality='high';
+    ctx.drawImage(S.outCanvas,ox+q*(pw+g),oy+r*(ph+g),pw,ph);
+  }
+  var b=await withDpi(await canvasBlob(c,'image/jpeg',0.95),300);
+  var url=URL.createObjectURL(b); S.urls.push(url);
+  var nm='L-'+p.id+'-'+(n.c*n.r)+'mai-300dpi.jpg';
+  $('sheetimg').src=url; $('sheetimg').hidden=false; $('sheetimg').width=Math.min(220,SW/4);
+  $('sheetdl').href=url; $('sheetdl').setAttribute('download',nm); $('sheetdl').hidden=false;
+  $('sheetinfo').textContent='L判 '+SW+' × '+SH+' px('+(land?'横置き':'縦置き')+')/ 300 dpi / '+n.c+'列×'+n.r+'行 = '+(n.c*n.r)+'枚 / '+(b.size/1024).toFixed(0)+' KB';
+}
+$('makesheet').onclick=makeSheet;
+
+$('pick1').onclick=function(){$('file1').click();};
+$('file1').onchange=function(){ var f=this.files[0]; this.value=''; if(f) loadFile1(f); };
+var dz1=$('drop1');
+['dragenter','dragover'].forEach(function(n){dz1.addEventListener(n,function(e){e.preventDefault();dz1.classList.add('over');});});
+['dragleave','drop'].forEach(function(n){dz1.addEventListener(n,function(e){e.preventDefault();dz1.classList.remove('over');});});
+dz1.addEventListener('drop',function(e){ if(e.dataTransfer&&e.dataTransfer.files.length) loadFile1(e.dataTransfer.files[0]); });
+updateSizeInfo();
+
+/* =========================================================
+   まとめてサイズ変更
+   ========================================================= */
+var items=[], results=[], nextId=1, busy=false, cancelled=false;
+var custom2=mk('option',null,'(下の幅・高さを直接入力)'); custom2.value='';
+$('preset2').appendChild(custom2); fillPresets($('preset2'),false);
+$('preset2').addEventListener('change',function(){
+  var p=presetById(this.value); if(!p) return;
+  var d=dimsOf(p,300); $('bw').value=d[0]; $('bh').value=d[1];
+  if(p.mm){ $('dpi2').value='300'; }
+  clearResults();
+});
+function clearResults(){
+  results.forEach(function(r){URL.revokeObjectURL(r.url);}); results=[];
+  items.forEach(function(i){delete i.out; if(!i.bad) i.state='待機中';});
+  $('res').hidden=true; render();
+}
+function render(){
+  var ul=$('list'); ul.textContent='';
+  $('bwork').hidden=items.length===0;
+  $('count').textContent=items.length+'枚';
+  items.forEach(function(it){
+    var li=mk('li'); li.dataset.id=it.id;
+    li.appendChild(mk('span','fn',it.name));
+    var st=mk('span','st',it.state||'待機中'); if(it.bad) st.className='st ng'; li.appendChild(st);
+    if(it.out){ var a=mk('a','dlk','保存('+it.out.name+')'); a.href=it.out.url; a.download=it.out.name; a.setAttribute('aria-label',it.out.name+' を保存'); li.appendChild(a); }
+    var x=mk('button','ghost sm','外す'); x.type='button'; x.setAttribute('aria-label',it.name+' を一覧から外す'); x.disabled=busy;
+    x.addEventListener('click',function(){ items=items.filter(function(i){return i!==it;}); clearResults(); });
+    li.appendChild(x); ul.appendChild(li);
+  });
+}
+function setBusy(){ ['go','pick2','clear','preset2','bw','bh','mode','fmt2','dpi2','q2','bg2'].forEach(function(id){$(id).disabled=busy;}); $('cancel').hidden=!busy; Array.prototype.forEach.call(document.querySelectorAll('#list button'),function(b){b.disabled=busy;}); }
+function setProg(v,m){ var p=$('prog'); if(v==null){p.hidden=true;return;} p.hidden=false; p.max=m; p.value=v; }
+function addFiles(fileList){
+  if(busy) return;
+  var errs=[], files=Array.prototype.slice.call(fileList);
+  var heic=files.filter(isHeic); files=files.filter(function(f){return !isHeic(f);});
+  if(heic.length) errs.push('HEIC/HEIFは変換できません('+heic.map(function(f){return f.name;}).join('、')+')。');
+  var imgs=files.filter(isImg);
+  if(files.length-imgs.length) errs.push('画像ではないファイルを'+(files.length-imgs.length)+'件、無視しました。');
+  var room=MAX_FILES-items.length;
+  if(imgs.length>room){ errs.push('1回に扱えるのは'+MAX_FILES+'枚までです。'+(imgs.length-room)+'枚は追加していません。'); imgs=imgs.slice(0,Math.max(0,room)); }
+  clearResults();
+  imgs.forEach(function(f){ items.push({id:nextId++,file:f,name:f.name}); });
+  showErrs(errs); render();
+  setStatus(imgs.length?items.length+'枚を追加しました。サイズを決めて「変換する」を押してください。':'追加できた画像はありません。');
+}
+async function resizeOne(file,o){
+  var d=await decode(file), iw=d.w, ih=d.h, W=o.w, H=o.h, cw, ch, dx, dy, dw, dh;
+  if(o.mode==='fit'){
+    var s=Math.min(W/iw,H/ih); cw=Math.max(1,Math.round(iw*s)); ch=Math.max(1,Math.round(ih*s)); dx=0; dy=0; dw=cw; dh=ch;
+  } else if(o.mode==='fill'){
+    var s2=Math.max(W/iw,H/ih); cw=W; ch=H; dw=iw*s2; dh=ih*s2; dx=(W-dw)/2; dy=(H-dh)/2;
+  } else {
+    var s3=Math.min(W/iw,H/ih); cw=W; ch=H; dw=iw*s3; dh=ih*s3; dx=(W-dw)/2; dy=(H-dh)/2;
+  }
+  var c=document.createElement('canvas'); c.width=cw; c.height=ch;
+  var ctx=c.getContext('2d'); if(!ctx) throw new Error('キャンバスを作れません(サイズが大きすぎる可能性)');
+  if(o.fmt==='jpg'||o.mode==='pad'){ ctx.fillStyle=o.bg; ctx.fillRect(0,0,cw,ch); }
+  drawScaled(ctx,d.im,iw,ih,dx,dy,dw,dh);
+  if(d.im.close) d.im.close();
+  var b=await canvasBlob(c,MIME[o.fmt],o.fmt==='png'?undefined:o.q);
+  c.width=c.height=0;
+  if(!b) throw new Error('変換に失敗しました(サイズが大きすぎる可能性)');
+  if(b.type!==MIME[o.fmt]) throw new Error('このブラウザは'+o.fmt.toUpperCase()+'への書き出しに対応していません');
+  return {blob:await withDpi(b,o.fmt==='webp'?0:o.dpi),w:cw,h:ch};
+}
+async function run(){
+  if(busy||!items.length) return;
+  var W=parseInt($('bw').value,10), H=parseInt($('bh').value,10);
+  if(!(W>=1&&H>=1&&W<=16000&&H<=16000)){ showErrs(['幅と高さは1〜16000の整数で入れてください。']); return; }
+  var o={w:W,h:H,mode:$('mode').value,fmt:$('fmt2').value,q:parseInt($('q2').value,10)/100,bg:$('bg2').value||'#ffffff',dpi:parseInt($('dpi2').value,10)||0};
+  busy=true; cancelled=false; clearResults(); showErrs([]);
+  var errs=[], used={}, ok=0, ext=o.fmt;
+  items.forEach(function(i){delete i.bad; i.state='待機中';}); render(); setBusy();
+  var snap=items.slice();
+  for(var i=0;i<snap.length;i++){
+    if(cancelled) break;
+    var it=snap[i];
+    setStatus('変換中 '+(i+1)+' / '+snap.length+' : '+it.name); setProg(i,snap.length);
+    var row=document.querySelector('#list li[data-id="'+it.id+'"] .st'); if(row) row.textContent='変換中…';
+    try{
+      var r0=await resizeOne(it.file,o);
+      var base=clean(baseName(it.name))||'image', nm=base+'-'+r0.w+'x'+r0.h+'.'+ext, n=2;
+      while(used[nm.toLowerCase()]) nm=base+'-'+r0.w+'x'+r0.h+'-'+(n++)+'.'+ext;
+      used[nm.toLowerCase()]=1;
+      var r={name:nm,blob:r0.blob,mtime:it.file.lastModified||Date.now(),url:URL.createObjectURL(r0.blob)};
+      results.push(r); it.out=r; it.state='完了 '+r0.w+'×'+r0.h+' / '+(r0.blob.size/1024).toFixed(0)+' KB'; ok++;
+    }catch(e){
+      it.bad=true; it.state='失敗'; errs.push(it.name+' : '+(e.message==='decode'?'画像として読み込めませんでした':e.message));
+    }
+    await tick();
+  }
+  setProg(null); busy=false; render(); setBusy();
+  showErrs(errs);
+  $('res').hidden=results.length===0;
+  setStatus((cancelled?'中止しました。':'完了しました。')+'成功 '+ok+' 枚'+(errs.length?'、失敗 '+errs.length+' 枚':'')+'。');
+}
+
+/* ---------- ZIP(保存のみ) ---------- */
+function dosTime(ms){
+  var d=new Date(ms||Date.now()); var y=d.getFullYear(); if(y<1980){y=1980;}
+  return {t:(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1), d:((y-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate()};
+}
+async function buildZip(entries){
+  var parts=[], central=[], offset=0, enc=new TextEncoder();
+  for(var i=0;i<entries.length;i++){
+    var e=entries[i], nm=enc.encode(e.name), buf=new Uint8Array(await e.blob.arrayBuffer());
+    var crc=crc32(buf), tm=dosTime(e.mtime), size=buf.length;
+    var lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0x0800,true); lh.setUint16(8,0,true);
+    lh.setUint16(10,tm.t,true); lh.setUint16(12,tm.d,true); lh.setUint32(14,crc,true);
+    lh.setUint32(18,size,true); lh.setUint32(22,size,true); lh.setUint16(26,nm.length,true); lh.setUint16(28,0,true);
+    parts.push(lh.buffer,nm,buf);
+    var ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint16(10,0,true);
+    ch.setUint16(12,tm.t,true); ch.setUint16(14,tm.d,true); ch.setUint32(16,crc,true);
+    ch.setUint32(20,size,true); ch.setUint32(24,size,true); ch.setUint16(28,nm.length,true);
+    ch.setUint32(42,offset,true);
+    central.push(ch.buffer,nm);
+    offset+=30+nm.length+size;
+    if(i%3===2) await tick();
+  }
+  var csize=0; central.forEach(function(p){csize+=p.byteLength;});
+  var end=new DataView(new ArrayBuffer(22));
+  end.setUint32(0,0x06054b50,true); end.setUint16(8,entries.length,true); end.setUint16(10,entries.length,true);
+  end.setUint32(12,csize,true); end.setUint32(16,offset,true);
+  return new Blob(parts.concat(central,[end.buffer]),{type:'application/zip'});
+}
+async function dlZip(){
+  if(busy||!results.length) return;
+  var total=0; results.forEach(function(r){total+=r.blob.size;});
+  if(total>3.9e9){ showErrs(['合計サイズがZIPの上限(約4GB)を超えます。分けて処理してください。']); return; }
+  busy=true; setBusy(); setStatus('ZIPを作成中…');
+  try{
+    var zip=await buildZip(results);
+    var url=URL.createObjectURL(zip), a=document.createElement('a');
+    a.href=url; a.download='resized.zip'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){URL.revokeObjectURL(url);},60000);
+    setStatus(results.length+'枚をZIPにしました('+(zip.size/1048576).toFixed(1)+' MB)。ダウンロードを確認してください。');
+  } finally { busy=false; setBusy(); }
+}
+
+$('pick2').onclick=function(){$('file2').click();};
+$('file2').onchange=function(){ var l=Array.prototype.slice.call(this.files); this.value=''; addFiles(l); };
+var dz2=$('drop2');
+['dragenter','dragover'].forEach(function(n){dz2.addEventListener(n,function(e){e.preventDefault();dz2.classList.add('over');});});
+['dragleave','drop'].forEach(function(n){dz2.addEventListener(n,function(e){e.preventDefault();dz2.classList.remove('over');});});
+dz2.addEventListener('drop',function(e){ if(e.dataTransfer&&e.dataTransfer.files.length) addFiles(e.dataTransfer.files); });
+$('go').onclick=run;
+$('cancel').onclick=function(){cancelled=true; setStatus('中止しています…');};
+$('dlzip').onclick=dlZip;
+$('clear').onclick=function(){ items=[]; clearResults(); showErrs([]); setStatus('すべて外しました。'); };
+$('fmt2').addEventListener('input',function(){ $('q2wrap').hidden=($('fmt2').value==='png'); });
+$('q2').addEventListener('input',function(){ $('q2v').textContent=this.value; });
+['bw','bh','mode','fmt2','dpi2','bg2'].forEach(function(id){ $(id).addEventListener('change',function(){ if(results.length){ clearResults(); setStatus('設定を変えたので、もう一度「変換する」を押してください。'); } }); });
+})();
+</script>
+</body>
+</html>

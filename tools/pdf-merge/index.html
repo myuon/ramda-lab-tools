@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDFを結合(無料・アップロードなし)| 画像もまとめて1つのPDFに | ramda lab</title>
+<meta name="description" content="複数のPDFとJPG・PNGなどの画像を、ドラッグで並べ替えて1つのPDFに結合。ページ範囲の指定もできます。ファイルはアップロードされず、ブラウザの中だけで処理。回数や容量の1日制限もありません。">
+<link rel="canonical" href="https://lab.ramda.io/pdf-merge/">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="/style.css">
+<style>
+.drop{border:3px dashed var(--accent);background:var(--panel);padding:1.4rem 1rem;text-align:center;margin:1rem 0}
+.drop.over{background:var(--code)}
+.drop p{margin:.3rem 0}
+.row{display:flex;flex-wrap:wrap;gap:.6rem 1rem}
+.row > div{flex:1 1 9rem;min-width:8rem}
+.row input[type=text],.row select{max-width:none}
+select{font:inherit;padding:.55rem .6rem;border:1px solid var(--muted);background:var(--bg);color:var(--ink);min-height:44px;width:100%}
+.list{list-style:none;margin:1rem 0;padding:0}
+.list li{background:var(--panel);border:1px solid var(--line);padding:.4rem .6rem;margin:.3rem 0;display:flex;flex-wrap:wrap;gap:.2rem .8rem;align-items:center}
+.list li.dragging{opacity:.45}
+.list li.target{outline:3px solid var(--focus)}
+.list .no{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;color:var(--muted);min-width:2.2rem}
+.list .fn{flex:1 1 12rem;font-size:.9rem;min-width:0;overflow-wrap:anywhere}
+.list .st{font-size:.82rem;color:var(--muted)}
+.list .rg{display:flex;align-items:center;gap:.4rem;font-size:.85rem}
+.list .rg input{width:7.5rem;min-height:44px;font:inherit;padding:.3rem .5rem;border:1px solid var(--muted);background:var(--bg);color:var(--ink)}
+.list .rg input.bad{border:2px solid var(--ng)}
+.list .ctl{display:flex;gap:.25rem}
+.list .ctl button{min-width:44px;min-height:44px;padding:0}
+.drag{touch-action:none;cursor:grab}
+.status{min-height:1.5em;margin:.4rem 0}
+.errs{background:var(--warn-bg);border:2px solid var(--warn);padding:.6rem .9rem;margin:.8rem 0;font-size:.92rem}
+.errs ul{margin:.3rem 0;padding-left:1.2rem}
+a.btn{display:inline-flex;align-items:center;min-height:44px;padding:.5rem 1.3rem;font-weight:700;border:2px solid var(--accent);background:var(--accent);color:var(--accent-ink);text-decoration:none}
+progress{width:100%;height:1.2rem}
+button:disabled{opacity:.5;cursor:not-allowed}
+.privacy{border:2px solid var(--ok);background:var(--panel);padding:.7rem 1rem;margin:1rem 0}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">本文へ</a>
+<header class="site"><div class="wrap"><a class="brand" href="/">ramda lab</a></div></header>
+<main class="wrap" id="main">
+<h1>PDFを結合(無料・アップロードなし)</h1>
+<p class="lead">複数のPDFと、JPG・PNGなどの画像を、好きな順に並べて1つのPDFにまとめます。PDFは「1-3,5」のようにページを指定して、必要な部分だけ入れられます。</p>
+
+<div class="privacy"><strong>このページのコードは、ファイルをどこにも送信しません。</strong> 結合は、あなたのブラウザの中だけで行います。PDFや画像のアップロード、解析ツール、Cookieはありません。ただし、ブラウザ自体や拡張機能の通信までは、このページから保証できません。外に出したくない書類は、その点を踏まえてお使いください。</div>
+
+<div class="drop" id="drop">
+  <p><strong>ここにPDFや画像をドロップ</strong></p>
+  <p class="hint">または</p>
+  <p><button type="button" id="pick">ファイルを選ぶ</button></p>
+  <p class="hint">PDF、JPG、PNG、WebP、GIFなどに対応。複数選択できます(200ファイル、合計500MBまで)。</p>
+  <input type="file" id="file" accept="application/pdf,.pdf,image/*,.jpg,.jpeg,.png,.webp,.gif,.bmp,.avif,.heic,.heif" multiple hidden>
+</div>
+
+<div class="status" id="status" role="status" aria-live="polite"></div>
+<progress id="prog" value="0" max="1" hidden aria-label="処理の進み具合"></progress>
+<div class="errs" id="errs" hidden role="alert"></div>
+
+<section id="work" hidden aria-label="結合の設定と結果">
+<h2>1. 結合する順番</h2>
+<p class="meta" id="count"></p>
+<p class="hint">☰ をつかんでドラッグするか、↑ ↓ ボタンで順番を変えられます。上から順に1つのPDFになります。</p>
+<ul class="list" id="list" aria-label="ファイルの一覧"></ul>
+<div class="actions"><button type="button" class="ghost sm" id="clear">すべて外す</button></div>
+
+<h2>2. 出力の設定</h2>
+<fieldset>
+  <legend>画像のページと、ファイル名</legend>
+  <div class="row">
+    <div><label class="field" for="psize">画像のページの大きさ</label>
+      <select id="psize"><option value="a4auto">A4(画像の向きに合わせて縦横を自動)</option><option value="a4p">A4 縦</option><option value="a4l">A4 横</option><option value="orig">画像の元の大きさ</option></select></div>
+    <div><label class="field" for="margin">余白</label>
+      <select id="margin"><option value="0">なし</option><option value="10" selected>10mm</option><option value="20">20mm</option></select></div>
+    <div><label class="field" for="oname">出力ファイル名</label><input type="text" id="oname" value="merged" maxlength="100" autocomplete="off"></div>
+  </div>
+  <p><label><input type="checkbox" id="noup"> 小さい画像は拡大しない(A4のとき。初期は、ページに収まる最大まで拡大)</label></p>
+  <p class="hint">画像はA4に、縦横比を保ったまま収めて中央に置きます。「元の大きさ」は、画像の1ピクセルを0.75ポイント(96dpi相当)にしたページを作り、余白を足します。PDFのページは、元の大きさのまま入ります。</p>
+</fieldset>
+<div class="actions"><button type="button" id="go">結合する</button></div>
+
+<section id="res" hidden aria-label="結合結果">
+<h2>3. ダウンロード</h2>
+<p id="resinfo"></p>
+<div class="actions"><a id="dl" class="btn" download="merged.pdf">PDFをダウンロード</a></div>
+</section>
+</section>
+
+<h2>PDFを結合したい(pdf 結合)</h2>
+<p>結合したいPDFを上の枠に入れ、「結合する」を押すだけです。入れた順ではなく、一覧の順番で1つのPDFになるので、先に並べ替えてください。ソフトのインストールや会員登録は要りません。WindowsでもMacでも、iPhoneやAndroidのブラウザでも、同じように使えます。</p>
+<p>一部のページだけを入れたいときは、そのPDFの「ページ」欄に <code>1-3,5</code> のように書きます(1〜3ページと5ページ)。<code>2-</code> なら2ページ目から最後まで。空欄なら全ページです。同じファイルを2回追加して、別々の範囲を指定することもできます。</p>
+
+<h2>JPGやPNGの画像をPDFにしたい(jpg pdf 変換)</h2>
+<p>画像も同じ枠に入れられます。画像1枚が、PDFの1ページになります。スキャンや写真を撮った画像と、ほかのPDFを同じ一覧に混ぜて、まとめて1つにできます。JPGとPNGは、画像の中身を作り直さずにそのままPDFへ入れます(スマホで縦向きに撮った写真など、向きの情報があるJPGは、向きを直すために描き直します)。</p>
+
+<h2>複数の画像を1つのPDFにまとめたい(画像 pdf まとめる)</h2>
+<p>画像だけを何枚か入れて並べ、「結合する」を押します。紙の書類を撮った写真を1つのPDFにして、メールで送る、といった使い方です。ページの大きさは、A4に収める(縦横は自動)か、画像の元の大きさかを選べます。WebP、GIF、BMP、AVIFは、ブラウザで読み込めればJPGに描き直して入れます(透明な部分は白になります。GIFは最初の1コマ)。HEIC(iPhoneの写真)は、ブラウザが開ける環境(SafariやmacOSのChromeなど)でだけ入れられます。開けない場合は、<a href="/image-convert/">HEIC・WebP・AVIFをJPGに一括変換</a>で先に変えてください。</p>
+
+<h2>確定申告のe-Taxに添付する書類をまとめるとき</h2>
+<p>領収書、源泉徴収票、控除証明書などの写真やスキャンを、e-Taxにイメージデータとして添付する場合の条件を、国税庁の案内から引きます(確認日 2026-11-07)。</p>
+<ul>
+<li>形式: 「イメージデータで提出可能なデータ形式は、PDFのみです。」(JPGのままでは出せないため、このページで画像をPDFにします)</li>
+<li>解像度と色: 「解像度は200dpi相当以上」、階調は「256階調(いわゆる、グレースケール)以上」</li>
+<li>量: 「1送信当たりのデータ容量はPDFファイル合計で最大14.0MB、ファイル数は最大136ファイル」。追加送信を併用すると、最大11回の送信で154.0MB・1,496ファイルまで</li>
+<li>パスワード保護されたPDFは添付できません(国税庁の案内に記載)</li>
+</ul>
+<p>出典: <a href="https://www.e-tax.nta.go.jp/imagedata/imagedata1.htm" rel="noopener">国税庁 e-Tax「添付書類のイメージデータによる提出について」</a>、<a href="https://www.e-tax.nta.go.jp/toiawase/qa/imagedata/04.htm" rel="noopener">同「送信可能なファイル形式やデータ容量などを教えてください」</a>(更新日 令和6年1月4日)。</p>
+<p>手順の例: 書類を200dpi以上でスキャンするか、近くでピントを合わせて撮影し、必要なら<a href="/image-renamer/">連番リネーム</a>で順番を整え、この結合ページに入れて1つのPDFにします。結合後のファイルが14.0MBを超えるときは、2つ以上に分けて、それぞれ14.0MB以下にします。このツールは圧縮をしないので、サイズは元の合計とほぼ同じです。また、このツールは結果が200dpi相当かを判定しません。「A4に収める」を選ぶと、画像はページの大きさに合わせて拡大縮小されます。条件は改正されることがあるため、提出前に最新の案内を確認してください。</p>
+
+<p class="hint">関連ツール: <a href="/image-convert/">HEIC・WebP・AVIFをJPGに一括変換</a> / <a href="/image-compress-kb/">画像を指定KB以下に一括圧縮</a> / <a href="/image-resize/">画像のサイズ変更</a> / <a href="/image-renamer/">画像の連番リネームとZIP保存</a></p>
+
+<h2>制限と注意</h2>
+<ul>
+<li><strong>パスワードで保護(暗号化)されたPDFは結合できません。</strong>パスワードを外す機能は、このページにはありません。Acrobatやプレビューなど、パスワードを知っている本人が使えるソフトで、保護を外して保存し直したものを入れてください。</li>
+<li>一度に扱えるのは200ファイル、合計500MBまでです。それ以上は分けて結合し、結果をもう一度結合してください。ブラウザのメモリ次第で、それより少なくても失敗することがあります(特にスマホ)。</li>
+<li>壊れたPDFや、PDFではないファイルは、一覧に入れず、理由を表示します。</li>
+<li>ページの中身(文字、画像、フォント)はそのまま写します。ただし、結合しても容量は減りません。しおり(目次)、フォームの入力欄、注釈のリンクなどは、引き継がれないことがあります。署名付きPDFの署名は、結合すると無効になります。</li>
+<li>圧縮はしません。結合後のファイルは、元のファイルの合計とほぼ同じ大きさです。</li>
+<li>ファイル名に使えない文字(<code>/ \ : * ? " &lt; &gt; |</code>)は <code>_</code> に置き換えます。</li>
+</ul>
+
+<h2>よくある質問</h2>
+<details><summary>本当にアップロードされませんか。</summary>
+<p>結合のコードは、このサイトに置いたライブラリ(pdf-lib)だけで、外部への通信を行いません。ブラウザ自体や拡張機能の通信までは保証できません。</p></details>
+<details><summary>1日の回数や容量の制限はありますか。</summary>
+<p>回数の制限、会員登録、透かしはありません。1回の上限は、200ファイル・合計500MBです。上限は、ブラウザの安全のために置いたものです。</p></details>
+<details><summary>パスワード付きのPDFは結合できますか。</summary>
+<p>できません。暗号化されたPDFは、中身を読めないため、一覧に入れずに理由を表示します。パスワードを知っている場合は、別のソフトで保護を外して保存し直してから入れてください。パスワードを破る機能はありません。</p></details>
+<details><summary>ページの順番を入れ替えたり、1ページずつ並べ替えたりできますか。</summary>
+<p>並べ替えられるのは、ファイル単位です。1つのPDFの中のページを入れ替えたいときは、同じPDFを複数回追加し、それぞれにページ範囲(たとえば「3」「1-2」)を指定して並べてください。</p></details>
+
+<footer>
+<p>運営: myuon(ハンドル名、個人運営)。確認日: 2026-11-06。広告、アクセス解析、Cookieはありません。PDFの結合には、MITライセンスのライブラリ pdf-lib 1.17.1 を、このサイトに置いたファイル(<a href="pdf-lib.min.js">pdf-lib.min.js</a>、<a href="pdf-lib.LICENSE.md">ライセンス</a>)として使っています。</p>
+<p><a href="/">ramda lab トップへ</a></p>
+</footer>
+</main>
+<script src="pdf-lib.min.js"></script>
+<script>
+(function(){
+'use strict';
+var MAX_FILES=200, MAX_TOTAL=500*1024*1024;
+var items=[], nextId=1, busy=false, dlUrl=null;
+var $=function(id){return document.getElementById(id);};
+function mk(tag,cls,text){var e=document.createElement(tag); if(cls)e.className=cls; if(text!=null)e.textContent=text; return e;}
+function setStatus(t){$('status').textContent=t;}
+function setProg(v,m){var p=$('prog'); if(v==null){p.hidden=true;return;} p.hidden=false; p.max=m; p.value=v;}
+function tick(){return new Promise(function(r){setTimeout(r,0);});}
+function fmtSize(n){return n>=1048576?(n/1048576).toFixed(1)+'MB':Math.max(1,Math.round(n/1024))+'KB';}
+function showErrs(list){
+  var e=$('errs'); e.textContent='';
+  if(!list.length){e.hidden=true;return;}
+  e.hidden=false;
+  e.appendChild(mk('strong',null,'次のファイルは追加できませんでした。'));
+  var ul=document.createElement('ul');
+  list.forEach(function(s){ul.appendChild(mk('li',null,s));});
+  e.appendChild(ul);
+}
+function isPdf(f){return f.type==='application/pdf'||/\.pdf$/i.test(f.name);}
+function totalSize(){return items.reduce(function(a,i){return a+i.file.size;},0);}
+function freeResult(){ if(dlUrl){URL.revokeObjectURL(dlUrl);dlUrl=null;} $('res').hidden=true; }
+
+/* ---------- ページ範囲 ---------- */
+// "1-3,5" -> 0始まりの配列。空欄は全ページ。失敗したら null
+function parseRange(s,n){
+  s=(s||'').replace(/[\s　]/g,'').replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);}).replace(/[,、，]/g,',').replace(/[-－ー~〜]/g,'-');
+  if(!s){var all=[];for(var i=0;i<n;i++)all.push(i);return all;}
+  var out=[],parts=s.split(',');
+  for(var k=0;k<parts.length;k++){
+    var m=/^(\d*)-(\d*)$/.exec(parts[k]), a,b;
+    if(m&&(m[1]||m[2])){a=m[1]?+m[1]:1; b=m[2]?+m[2]:n;}
+    else if(/^\d+$/.test(parts[k])){a=b=+parts[k];}
+    else return null;
+    if(a<1||b>n||a>b) return null;
+    for(var p=a;p<=b;p++) out.push(p-1);
+  }
+  return out;
+}
+
+/* ---------- 追加 ---------- */
+async function addFiles(files){
+  if(busy) return;
+  freeResult();
+  var errs=[], added=0;
+  files=Array.prototype.slice.call(files);
+  for(var i=0;i<files.length;i++){
+    var f=files[i];
+    if(items.length>=MAX_FILES){errs.push(f.name+': 200ファイルの上限に達したため追加しませんでした。'); continue;}
+    if(totalSize()+f.size>MAX_TOTAL){errs.push(f.name+': 合計500MBの上限を超えるため追加しませんでした。'); continue;}
+    setStatus('読み込み中: '+f.name+'('+(i+1)+'/'+files.length+')');
+    try{
+      if(isPdf(f)){
+        var doc=await PDFLib.PDFDocument.load(new Uint8Array(await f.arrayBuffer()),{updateMetadata:false});
+        var n=doc.getPageCount(); doc=null;
+        if(!n){errs.push(f.name+': ページが0枚のPDFです。'); continue;}
+        items.push({id:nextId++,file:f,kind:'pdf',pages:n,range:''});
+      } else if(/^image\//.test(f.type)||/\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i.test(f.name)){
+        items.push({id:nextId++,file:f,kind:'img'});
+      } else { errs.push(f.name+': PDFでも画像でもないため追加しませんでした。'); continue; }
+      added++;
+    }catch(e){
+      if(e&&e.constructor&&e.constructor.name==='EncryptedPDFError'||/encrypt/i.test(String(e&&e.message))){
+        errs.push(f.name+': パスワードで保護(暗号化)されたPDFです。結合できません。パスワードを知っている場合は、別のソフトで保護を外して保存し直したものを追加してください。');
+      } else errs.push(f.name+': PDFとして読めませんでした(壊れているか、対応していない形式です)。');
+    }
+    if(i%5===4) await tick();
+  }
+  showErrs(errs); render();
+  setStatus(added+'件を追加しました。合計'+items.length+'件。'+(errs.length?'追加できなかったものが'+errs.length+'件あります。':''));
+}
+
+/* ---------- 描画 ---------- */
+function idx(id){for(var i=0;i<items.length;i++) if(items[i].id===id) return i; return -1;}
+function render(){
+  var ul=$('list'); ul.textContent='';
+  $('work').hidden=items.length===0;
+  var pg=0; items.forEach(function(it){ if(it.kind==='img') pg++; else { var r=parseRange(it.range,it.pages); pg+=r?r.length:0; } });
+  $('count').textContent=items.length+'ファイル、合計'+fmtSize(totalSize())+'(結合後は約'+pg+'ページ)';
+  items.forEach(function(it,i){
+    var li=mk('li'); li.dataset.id=it.id;
+    li.appendChild(mk('span','no',(i+1)+'.'));
+    var fn=mk('span','fn',it.file.name); fn.title=it.file.name; li.appendChild(fn);
+    li.appendChild(mk('span','st',(it.kind==='pdf'?'PDF '+it.pages+'ページ':'画像 1ページ')+' / '+fmtSize(it.file.size)));
+    if(it.kind==='pdf'){
+      var w=mk('label','rg','ページ '); var inp=document.createElement('input'); inp.type='text'; inp.value=it.range; inp.placeholder='全ページ'; inp.setAttribute('aria-label','ページ範囲(例 1-3,5)。'+it.file.name); inp.autocomplete='off';
+      inp.classList.toggle('bad',parseRange(it.range,it.pages)===null);
+      inp.addEventListener('input',function(){ it.range=inp.value; inp.classList.toggle('bad',parseRange(it.range,it.pages)===null); freeResult(); updCount(); });
+      w.appendChild(inp); li.appendChild(w);
+    }
+    var ctl=mk('span','ctl'); var lab='('+it.file.name+')';
+    var g=mk('button','ghost drag','☰'); g.type='button'; g.setAttribute('aria-label','つかんでドラッグ'+lab); g.title='ドラッグで移動';
+    g.addEventListener('pointerdown',function(ev){startDrag(ev,it.id,li,g);});
+    var u=mk('button','ghost','↑'); u.type='button'; u.setAttribute('aria-label','上へ'+lab); u.disabled=i===0; u.addEventListener('click',function(){move(it.id,-1);});
+    var d=mk('button','ghost','↓'); d.type='button'; d.setAttribute('aria-label','下へ'+lab); d.disabled=i===items.length-1; d.addEventListener('click',function(){move(it.id,1);});
+    var x=mk('button','ghost','×'); x.type='button'; x.setAttribute('aria-label','リストから外す'+lab); x.title='外す'; x.addEventListener('click',function(){remove(it.id);});
+    ctl.appendChild(g);ctl.appendChild(u);ctl.appendChild(d);ctl.appendChild(x);
+    li.appendChild(ctl); ul.appendChild(li);
+  });
+}
+function updCount(){
+  var pg=0; items.forEach(function(it){ if(it.kind==='img') pg++; else { var r=parseRange(it.range,it.pages); pg+=r?r.length:0; } });
+  $('count').textContent=items.length+'ファイル、合計'+fmtSize(totalSize())+'(結合後は約'+pg+'ページ)';
+}
+function move(id,dir){
+  var i=idx(id), j=i+dir; if(j<0||j>=items.length) return;
+  freeResult(); var t=items[i]; items[i]=items[j]; items[j]=t; render();
+  var b=document.querySelector('li[data-id="'+id+'"] button[aria-label^="'+(dir<0?'上へ':'下へ')+'"]');
+  if(b&&!b.disabled) b.focus(); else { var any=document.querySelector('li[data-id="'+id+'"] button:not(:disabled)'); if(any) any.focus(); }
+  setStatus((j+1)+'番目に移動しました。');
+}
+function remove(id){ var i=idx(id); if(i<0) return; freeResult(); items.splice(i,1); render(); setStatus('1件外しました。残り'+items.length+'件。'); }
+
+/* ---------- ドラッグ ---------- */
+var drag=null;
+function startDrag(ev,id,li,h){
+  if(ev.button!==undefined&&ev.button!==0) return;
+  ev.preventDefault();
+  drag={id:id,li:li,target:null,pid:ev.pointerId,handle:h};
+  try{h.setPointerCapture(ev.pointerId);}catch(e){}
+  li.classList.add('dragging');
+  h.addEventListener('pointermove',onMove); h.addEventListener('pointerup',onUp); h.addEventListener('pointercancel',onCancel);
+}
+function onMove(ev){
+  if(!drag) return;
+  var el=document.elementFromPoint(ev.clientX,ev.clientY);
+  var t=el&&el.closest?el.closest('#list li'):null;
+  if(drag.target&&drag.target!==t) drag.target.classList.remove('target');
+  drag.target=(t&&t!==drag.li)?t:null;
+  if(drag.target) drag.target.classList.add('target');
+  if(ev.clientY<70) window.scrollBy(0,-18); else if(ev.clientY>window.innerHeight-70) window.scrollBy(0,18);
+}
+function endDrag(){
+  var h=drag.handle;
+  h.removeEventListener('pointermove',onMove); h.removeEventListener('pointerup',onUp); h.removeEventListener('pointercancel',onCancel);
+  try{h.releasePointerCapture(drag.pid);}catch(e){}
+  drag.li.classList.remove('dragging'); if(drag.target) drag.target.classList.remove('target');
+}
+function onUp(){
+  if(!drag) return;
+  var d=drag; endDrag(); drag=null;
+  if(d.target){
+    var from=idx(d.id), to=idx(+d.target.dataset.id);
+    if(from>=0&&to>=0){ freeResult(); var it=items.splice(from,1)[0]; items.splice(to,0,it); render(); setStatus((to+1)+'番目に移動しました。'); }
+  }
+}
+function onCancel(){ if(!drag) return; endDrag(); drag=null; }
+
+/* ---------- 結合 ---------- */
+var MM=72/25.4, A4W=210*MM, A4H=297*MM;
+function canvasBlob(c,type,q){return new Promise(function(res){try{c.toBlob(res,type,q);}catch(e){res(null);}});}
+async function loadImageBytes(f){
+  // 戻り値 {bytes,type:'jpg'|'png'}。JPG/PNGはそのまま。向きが違う・他形式は描き直す
+  var buf=new Uint8Array(await f.arrayBuffer());
+  var isJpg=buf[0]===0xFF&&buf[1]===0xD8, isPng=buf[0]===0x89&&buf[1]===0x50&&buf[2]===0x4E&&buf[3]===0x47;
+  var bmp=null;
+  try{ bmp=await createImageBitmap(f); }catch(e){ bmp=null; }
+  if(isPng) return {bytes:buf,type:'png'};
+  if(isJpg){
+    var nat=jpegSize(buf);
+    if(!bmp||!nat||(bmp.width===nat[0]&&bmp.height===nat[1])){ if(bmp&&bmp.close)bmp.close(); return {bytes:buf,type:'jpg'}; }
+  }
+  if(!bmp) throw new Error('この形式の画像は、お使いのブラウザでは開けませんでした。');
+  var c=document.createElement('canvas'); c.width=bmp.width; c.height=bmp.height;
+  var ctx=c.getContext('2d'); ctx.fillStyle='#fff'; ctx.fillRect(0,0,c.width,c.height); ctx.drawImage(bmp,0,0);
+  if(bmp.close)bmp.close();
+  var b=await canvasBlob(c,'image/jpeg',0.92); c.width=c.height=0;
+  if(!b) throw new Error('画像の描き直しに失敗しました(大きすぎる可能性があります)。');
+  return {bytes:new Uint8Array(await b.arrayBuffer()),type:'jpg'};
+}
+function jpegSize(b){
+  var i=2; while(i+9<b.length){
+    if(b[i]!==0xFF){i++;continue;}
+    var m=b[i+1]; if(m===0xFF){i++;continue;}
+    if(m>=0xC0&&m<=0xCF&&m!==0xC4&&m!==0xC8&&m!==0xCC) return [(b[i+7]<<8)|b[i+8],(b[i+5]<<8)|b[i+6]];
+    i+=2+((b[i+2]<<8)|b[i+3]);
+  } return null;
+}
+function safeName(s){ s=(s||'').replace(/\.pdf$/i,'').replace(/[\/\\:*?"<>|]/g,'_').replace(/^[\s.]+|[\s.]+$/g,''); return (s||'merged')+'.pdf'; }
+
+async function merge(){
+  if(busy||!items.length) return;
+  var ranges=[];
+  for(var i=0;i<items.length;i++){
+    if(items[i].kind==='pdf'){ var r=parseRange(items[i].range,items[i].pages);
+      if(!r){ setStatus((i+1)+'番目「'+items[i].file.name+'」のページ範囲が正しくありません(例: 1-'+items[i].pages+')。'); return; }
+      ranges[i]=r; }
+  }
+  busy=true; $('go').disabled=true; freeResult(); showErrs([]);
+  var errs=[];
+  try{
+    var out=await PDFLib.PDFDocument.create();
+    out.setProducer('ramda lab pdf-merge'); out.setCreator('ramda lab pdf-merge');
+    var psize=$('psize').value, mar=+$('margin').value*MM, noup=$('noup').checked, pages=0;
+    for(var k=0;k<items.length;k++){
+      var it=items[k]; setProg(k,items.length); setStatus('結合中 '+(k+1)+'/'+items.length+': '+it.file.name); await tick();
+      try{
+        if(it.kind==='pdf'){
+          var src=await PDFLib.PDFDocument.load(new Uint8Array(await it.file.arrayBuffer()),{updateMetadata:false});
+          var cp=await out.copyPages(src,ranges[k]); cp.forEach(function(p){out.addPage(p);}); pages+=cp.length;
+        } else {
+          var im=await loadImageBytes(it.file);
+          var emb=im.type==='png'?await out.embedPng(im.bytes):await out.embedJpg(im.bytes);
+          var iw=emb.width, ih=emb.height, pw, ph, dw, dh;
+          if(psize==='orig'){ dw=iw*0.75; dh=ih*0.75; pw=dw+2*mar; ph=dh+2*mar; }
+          else {
+            var land = psize==='a4l' || (psize==='a4auto' && iw>ih);
+            pw=land?A4H:A4W; ph=land?A4W:A4H;
+            var s=Math.min((pw-2*mar)/iw,(ph-2*mar)/ih); if(noup) s=Math.min(s,0.75);
+            dw=iw*s; dh=ih*s;
+          }
+          var pgp=out.addPage([pw,ph]); pgp.drawImage(emb,{x:(pw-dw)/2,y:(ph-dh)/2,width:dw,height:dh}); pages++;
+        }
+      }catch(e){
+        throw new Error(it.file.name+': '+(e&&e.message?e.message:'処理に失敗しました。'));
+      }
+    }
+    setStatus('PDFを書き出しています…'); await tick();
+    var bytes=await out.save({useObjectStreams:true});
+    var blob=new Blob([bytes],{type:'application/pdf'});
+    dlUrl=URL.createObjectURL(blob);
+    var a=$('dl'); a.href=dlUrl; a.download=safeName($('oname').value);
+    $('resinfo').textContent=a.download+'('+pages+'ページ、'+fmtSize(blob.size)+')ができました。';
+    $('res').hidden=false; setProg(null); setStatus('結合が終わりました。'+pages+'ページ。');
+  }catch(e){
+    setProg(null); showErrs([String(e&&e.message||e)]); setStatus('結合に失敗しました。メモリ不足の可能性があります。ファイルを分けて試してください。');
+  }
+  busy=false; $('go').disabled=false;
+}
+
+/* ---------- 入力 ---------- */
+$('pick').onclick=function(){$('file').click();};
+$('file').onchange=function(){addFiles(this.files); this.value='';};
+var dz=$('drop');
+['dragenter','dragover'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.add('over');});});
+['dragleave','drop'].forEach(function(n){dz.addEventListener(n,function(e){e.preventDefault();dz.classList.remove('over');});});
+dz.addEventListener('drop',function(e){ if(e.dataTransfer&&e.dataTransfer.files) addFiles(e.dataTransfer.files); });
+$('go').onclick=merge;
+$('clear').onclick=function(){items=[]; freeResult(); showErrs([]); render(); setStatus('すべて外しました。');};
+['psize','margin','noup','oname'].forEach(function(id){$(id).addEventListener('input',freeResult);});
+render();
+})();
+</script>
+</body>
+</html>
